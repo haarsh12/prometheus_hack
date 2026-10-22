@@ -72,7 +72,7 @@ export function Onboarding({ auth, profile, onComplete }: OnboardingProps) {
     <main className="onboarding-page">
       <section className="onboarding-card">
         <div className="onboarding-card__progress" aria-label={'Step ' + step + ' of 2'}><span className={step === 1 ? 'is-active' : 'is-done'} /><span className={step === 2 ? 'is-active' : ''} /></div>
-        <p className="section-kicker">Set up your Sahayak space</p>
+        <p className="section-kicker">Set up your ShetiMitra space</p>
         <h1>{stepTitle}</h1>
         <p className="onboarding-card__lead">You can update these details later. Your mobile number, {profile.phone_number}, remains your verified identity.</p>
 
@@ -97,7 +97,7 @@ export function Onboarding({ auth, profile, onComplete }: OnboardingProps) {
               </select>
             </label>
             <label><span>Your cooperative role <em>Optional</em></span><input onChange={(event) => setCooperativeRole(event.target.value)} placeholder="For example, member, office bearer or volunteer" value={cooperativeRole} /></label>
-            <p className="onboarding-card__note">This helps Sahayak AI organise your service space. It does not determine access to government benefits or services.</p>
+            <p className="onboarding-card__note">This helps ShetiMitra AI organise your farm support space. It does not determine access to government benefits or services.</p>
             {error && <p className="form-feedback form-feedback--error" role="alert">{error}</p>}
             <div className="onboarding-card__actions"><button className="text-action" onClick={() => setStep(1)} type="button"><ArrowLeft size={16} /> Back</button><button className="primary-action" disabled={isSaving} type="submit">{isSaving ? <LoaderCircle className="spin" size={17} /> : null}{isSaving ? 'Saving…' : 'Complete setup'}</button></div>
           </form>

@@ -136,7 +136,7 @@ export function TranscriptPanel({ entries, isSendingText, disabled, onSendText }
                 key={entry.id}
               >
                 <span className="transcript-entry__role">
-                  {entry.role === 'assistant' ? 'Sahayak AI' : 'You'}
+                  {entry.role === 'assistant' ? 'ShetiMitra AI' : 'You'}
                 </span>
                 <p>{entry.text}</p>
                 {entry.role === 'assistant' && entry.evidenceStatus && (
@@ -144,7 +144,7 @@ export function TranscriptPanel({ entries, isSendingText, disabled, onSendText }
                     {(entry.evidenceStatus === 'VERIFIED_SOURCE' || 
                       entry.evidenceStatus === 'MULTIPLE_VERIFIED_SOURCES' || 
                       entry.evidenceStatus === 'PARTIALLY_VERIFIED') && (
-                      <span className="evidence-dot" aria-label="Verified Sahayak sources used" />
+                      <span className="evidence-dot" aria-label="Verified ShetiMitra sources used" />
                     )}
                     {evidenceStatusLabel[entry.evidenceStatus]}
                   </span>
@@ -235,7 +235,7 @@ export function TranscriptPanel({ entries, isSendingText, disabled, onSendText }
             <Camera size={19} aria-hidden="true" />
           </button>
           <textarea
-            aria-label="Message Sahayak AI"
+            aria-label="Message ShetiMitra AI"
             className="text-composer__input"
             disabled={isSendingText || disabled}
             maxLength={4_000}

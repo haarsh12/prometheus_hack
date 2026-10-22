@@ -385,7 +385,7 @@ export function VoiceAssistant({
       return 'The local voice API cannot be reached. Start FastAPI on port 8000, then try again.'
     }
     if (/agent.*timeout|agent.*not.*available/i.test(message)) {
-      return 'Connected to LiveKit, but the Sahayak AI voice worker is not available yet. Start the agent worker and try again.'
+      return 'Connected to LiveKit, but the ShetiMitra AI voice worker is not available yet. Start the agent worker and try again.'
     }
     return 'Unable to start the voice session. Check the service status below and try again.'
   }
@@ -549,7 +549,7 @@ export function VoiceAssistant({
       <header className="voice-app__header">
         <div>
           <p className="section-kicker">Voice workspace</p>
-          <h1>Talk to Sahayak AI</h1>
+          <h1>Talk to ShetiMitra AI</h1>
         </div>
         <div className="voice-app__header-actions">
           <button
@@ -575,7 +575,7 @@ export function VoiceAssistant({
       />
 
       <div className="split-layout">
-        <section className="voice-stage" aria-label="Sahayak AI voice session">
+        <section className="voice-stage" aria-label="ShetiMitra AI voice session">
           <div className={`voice-orb voice-orb--${voiceState}`}>
             <div className="voice-orb__core">
               {agent.microphoneTrack ? (

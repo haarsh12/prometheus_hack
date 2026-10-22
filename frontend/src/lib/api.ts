@@ -28,7 +28,7 @@ import { cache } from './cache'
 const configuredApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
 const apiBaseUrl = configuredApiBaseUrl ? configuredApiBaseUrl.replace(/\/$/, '') : ''
 
-export const agentName = import.meta.env.VITE_AGENT_NAME ?? 'sahayak-ai'
+export const agentName = import.meta.env.VITE_AGENT_NAME ?? 'shetimitra-ai'
 // In kiosk builds (.env.kiosk) this is 'raspberrypi'; website builds use 'website'
 const clientDevice = (import.meta.env.VITE_CLIENT_DEVICE as string | undefined) ?? 'website'
 
@@ -53,7 +53,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers: { 'Content-Type': 'application/json', ...clientDeviceHeaders(), ...headers },
     })
   } catch {
-    throw new Error('Sahayak AI cannot reach its local service. Refresh this page, then make sure the API is running.')
+    throw new Error('ShetiMitra AI cannot reach its local service. Refresh this page, then make sure the API is running.')
   }
 
   if (!response.ok) {
@@ -74,7 +74,7 @@ async function getSafeError(response: Response): Promise<string> {
   }
   if (response.status === 401) return 'Your session has expired. Please sign in again.'
   if (response.status === 429) return 'Too many attempts. Please wait a moment and try again.'
-  if (response.status === 502 || response.status === 503) return 'Sahayak AI is starting. Please wait a moment and try again.'
+  if (response.status === 502 || response.status === 503) return 'ShetiMitra AI is starting. Please wait a moment and try again.'
   return 'We could not complete that request. Please try again.'
 }
 

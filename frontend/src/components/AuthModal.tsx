@@ -66,7 +66,7 @@ function IndianNumber({ value, onChange }: { value: string; onChange: (value: st
           value={value}
         />
       </div>
-      <small id="mobile-number-hint">We use this only to secure your Sahayak account.</small>
+      <small id="mobile-number-hint">We use this only to secure your ShetiMitra account.</small>
     </label>
   )
 }
@@ -172,7 +172,7 @@ export function AuthModal({ auth, isOpen, onClose, onVerified }: AuthModalProps)
     if (r.address.trim().length < 2) missing.push('address')
     if (r.pincode.trim().length !== 6) missing.push('6-digit pincode')
     if (!r.caste_category) missing.push('caste category')
-    if (!r.user_type) missing.push('how you use Sahayak')
+    if (!r.user_type) missing.push('how you use ShetiMitra')
     return missing
   }
 
@@ -290,7 +290,7 @@ export function AuthModal({ auth, isOpen, onClose, onVerified }: AuthModalProps)
         <header className="auth-modal__header">
           <div className="auth-modal__brand">
             <span aria-hidden="true"><MessageCircleMore size={21} /></span>
-            <b>Sahayak AI</b>
+            <b>ShetiMitra AI</b>
           </div>
           <button aria-label="Close sign in" className="icon-button" onClick={onClose} type="button"><X size={20} /></button>
         </header>
@@ -305,12 +305,12 @@ export function AuthModal({ auth, isOpen, onClose, onVerified }: AuthModalProps)
             <div className="auth-choice-grid">
               <button className="auth-choice" onClick={() => chooseIntent('login')} type="button">
                 <span className="auth-choice__icon"><LogIn size={19} /></span>
-                <span><b>Log in</b><small>I already have a Sahayak account</small></span>
+                <span><b>Log in</b><small>I already have a ShetiMitra account</small></span>
                 <ArrowRight aria-hidden="true" size={18} />
               </button>
               <button className="auth-choice" onClick={() => chooseIntent('register')} type="button">
                 <span className="auth-choice__icon auth-choice__icon--accent"><UserRoundPlus size={19} /></span>
-                <span><b>Create account</b><small>I'm new to Sahayak AI</small></span>
+                <span><b>Create account</b><small>I'm new to ShetiMitra AI</small></span>
                 <ArrowRight aria-hidden="true" size={18} />
               </button>
               {deviceBiometricsAvailable && (
@@ -329,7 +329,7 @@ export function AuthModal({ auth, isOpen, onClose, onVerified }: AuthModalProps)
             <div className="auth-modal__intro">
               <p className="section-kicker">Log in</p>
               <h2 id="auth-title">Welcome back.</h2>
-              <p>Use the mobile number linked to your Sahayak account.</p>
+              <p>Use the mobile number linked to your ShetiMitra account.</p>
             </div>
             <form className="auth-form" onSubmit={(event) => void requestOtp('login', event)}>
               <IndianNumber onChange={setMobile} value={mobile} />
@@ -350,7 +350,7 @@ export function AuthModal({ auth, isOpen, onClose, onVerified }: AuthModalProps)
             <button className="auth-modal__back" onClick={backToChoice} type="button"><ArrowLeft size={16} /> Back to options</button>
             <div className="auth-modal__intro auth-modal__intro--register">
               <p className="section-kicker">Create account · Step 1 of 2</p>
-              <h2 id="auth-title">Tell us how Sahayak can support you.</h2>
+              <h2 id="auth-title">Tell us how ShetiMitra can support you.</h2>
               <p>Complete your profile now. Your account is created only after your mobile number is verified.</p>
             </div>
             <form className="auth-form auth-form--registration" onSubmit={(event) => void continueRegistration(event)}>
@@ -454,9 +454,9 @@ export function AuthModal({ auth, isOpen, onClose, onVerified }: AuthModalProps)
                   </select>
                 </label>
 
-                {/* How do you use Sahayak */}
+                {/* How do you use ShetiMitra */}
                 <label className="auth-text-field">
-                  <span>How do you use Sahayak? <em aria-hidden="true" className="required-mark">*</em></span>
+                  <span>How do you use ShetiMitra? <em aria-hidden="true" className="required-mark">*</em></span>
                   <select
                     onChange={(event) => updateRegistration('user_type', event.target.value)}
                     required
@@ -499,7 +499,7 @@ export function AuthModal({ auth, isOpen, onClose, onVerified }: AuthModalProps)
             <div className="auth-modal__intro">
               <p className="section-kicker">Step 2 of 2 · Verify your number</p>
               <h2 id="auth-title">Enter the 6-digit OTP.</h2>
-              <p>We sent it to +91 {mobile}. Once verified, your secure Sahayak account will be ready.</p>
+              <p>We sent it to +91 {mobile}. Once verified, your secure ShetiMitra account will be ready.</p>
             </div>
             <form className="auth-form" onSubmit={(event) => void confirmOtp(event)}>
               <label className="otp-field"><span>One-time password</span><input aria-label="6-digit one-time password" autoComplete="one-time-code" inputMode="numeric" maxLength={6} onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="••••••" required value={otp} /></label>
@@ -514,7 +514,7 @@ export function AuthModal({ auth, isOpen, onClose, onVerified }: AuthModalProps)
               <p className="section-kicker">Optional security step</p>
               <h2 id="auth-title">Set up Face ID?</h2>
               <p>Use your device's Face ID, Touch ID, or screen lock for a faster, private sign-in next time.</p>
-              <p className="auth-biometric-note">Your face data and private key stay on your device. Sahayak stores only a public sign-in credential.</p>
+              <p className="auth-biometric-note">Your face data and private key stay on your device. ShetiMitra stores only a public sign-in credential.</p>
             </div>
             <div className="auth-face-setup__actions">
               <button className="primary-action auth-form__submit" disabled={isSubmitting} onClick={() => void setUpFaceId()} type="button">{isSubmitting ? <LoaderCircle className="spin" size={18} /> : <Fingerprint size={18} />}{isSubmitting ? 'Setting up…' : 'Set up Face ID'}</button>
