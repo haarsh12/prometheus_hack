@@ -1,27 +1,39 @@
-/// Central API configuration for Sahayak AI mobile application
+import 'package:flutter/foundation.dart';
+
+/// Central API configuration for ShetiMitra AI mobile application
 /// 
 /// Override at build time using:
 /// flutter run --dart-define=API_BASE_URL=http://your-server:8000
 class ApiConfig {
   const ApiConfig._();
 
-  // Default production URL - update this when deploying
-  // static const String _defaultUrl = String.fromEnvironment(
-  //   'API_BASE_URL',
-  //   defaultValue: 'https://voice-agent-backend-s1fs.onrender.com', // Render production backend
-  // );
+  static String? _overrideUrl;
 
-  // Development mode - Local server
-  static const String _defaultUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://172.20.10.14:8000', // Local development backend
-  );
+  /// Allow setting custom backend URL at runtime (e.g. from developer/settings screen)
+  static void setBaseUrl(String url) {
+    _overrideUrl = url.trim().replaceFirst(RegExp(r'/+$'), '');
+  }
+
+  static const String _envUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
 
   /// Base URL for all HTTP API calls
-  static String get baseUrl => _defaultUrl.replaceFirst(RegExp(r'/+$'), '');
+  static String get baseUrl {
+    if (_overrideUrl != null && _overrideUrl!.isNotEmpty) {
+      return _overrideUrl!;
+    }
+    if (_envUrl.isNotEmpty) {
+      return _envUrl.replaceFirst(RegExp(r'/+$'), '');
+    }
+    if (kIsWeb) {
+      return 'http://localhost:8000';
+    }
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:8000';
+    }
+    return 'http://localhost:8000';
+  }
 
-  /// Stable device declaration sent with every backend request. It is a
-  /// delivery hint for the AI, never an authentication or authorization claim.
+  /// Stable device declaration sent with every backend request
   static const String clientDevice = 'mobile-app';
 
   /// WebSocket URL derived from base URL
@@ -50,8 +62,13 @@ class ApiConfig {
   static const String schemes = '/api/schemes';
   static const String grievances = '/api/grievances';
   static const String knowledge = '/api/knowledge';
+
+  // Crop Health & Advisory Endpoints
+  static const String cropDiagnoses = '/api/crop-diagnoses';
+  static const String cropWeather = '/api/crop-weather';
+  static const String farmCalendar = '/api/farm-calendar';
   
   // Timeouts
   static const Duration connectionTimeout = Duration(seconds: 30);
-  static const Duration receiveTimeout = Duration(seconds: 30);
+  static const Duration receiveTimeout = Duration(seconds: 45);
 }

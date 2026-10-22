@@ -7,6 +7,8 @@ import 'core/services/cache_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/voice/providers/voice_provider.dart';
+import 'features/crops/providers/crop_provider.dart';
+import 'features/calendar/providers/calendar_provider.dart';
 import 'features/schemes/providers/schemes_provider.dart';
 import 'features/services/providers/services_provider.dart';
 import 'features/knowledge/providers/knowledge_provider.dart';
@@ -38,11 +40,11 @@ void main() async {
     ),
   );
 
-  runApp(const SahayakApp());
+  runApp(const ShetiMitraApp());
 }
 
-class SahayakApp extends StatelessWidget {
-  const SahayakApp({super.key});
+class ShetiMitraApp extends StatelessWidget {
+  const ShetiMitraApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +56,8 @@ class SahayakApp extends StatelessWidget {
         
         // Feature providers
         ChangeNotifierProvider(create: (_) => VoiceProvider()),
+        ChangeNotifierProvider(create: (_) => CropProvider()),
+        ChangeNotifierProvider(create: (_) => FarmCalendarProvider()),
         ChangeNotifierProvider(create: (_) => SchemesProvider()),
         ChangeNotifierProvider(create: (_) => ServicesProvider()),
         ChangeNotifierProvider(create: (_) => KnowledgeProvider()),
@@ -63,7 +67,7 @@ class SahayakApp extends StatelessWidget {
       child: Consumer<LanguageProvider>(
         builder: (context, languageProvider, child) {
           return MaterialApp.router(
-            title: 'Sahayak AI',
+            title: 'ShetiMitra AI',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             routerConfig: AppRouter.router,
@@ -81,3 +85,6 @@ class SahayakApp extends StatelessWidget {
     );
   }
 }
+
+/// Backward compatibility alias
+typedef SahayakApp = ShetiMitraApp;

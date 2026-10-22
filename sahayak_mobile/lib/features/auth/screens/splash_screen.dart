@@ -5,7 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/providers/language_provider.dart';
 import '../providers/auth_provider.dart';
 
-/// Splash screen with app logo and initialization
+/// Splash screen with app logo and initialization for ShetiMitra AI
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -35,16 +35,19 @@ class _SplashScreenState extends State<SplashScreen> {
     // Check language selection
     final isLanguageSelected = await languageProvider.isLanguageSelected();
 
+    if (!mounted) return;
+
     if (!isLanguageSelected) {
       // First time - show language selection
       context.go('/language-selection');
     } else if (authProvider.isAuthenticated) {
-      // Already logged in - go to home (voice page)
-      context.go('/ask-sahayak');
+      // Already logged in - go to home
+      context.go('/ask-shetimitra');
     } else {
       // Not logged in - go directly to app in guest mode
       await authProvider.continueAsGuest();
-      context.go('/ask-sahayak');
+      if (!mounted) return;
+      context.go('/ask-shetimitra');
     }
   }
 
@@ -56,24 +59,28 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo placeholder
+            // Logo
             Container(
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(24),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF059669), Color(0xFF10B981)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
-                    blurRadius: 20,
+                    color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                    blurRadius: 24,
                     offset: const Offset(0, 10),
                   ),
                 ],
               ),
               child: const Icon(
-                Icons.support_agent,
-                size: 60,
+                Icons.eco_rounded,
+                size: 64,
                 color: Colors.white,
               ),
             ),
@@ -81,10 +88,10 @@ class _SplashScreenState extends State<SplashScreen> {
             
             // App name
             const Text(
-              'Sahayak AI',
+              'ShetiMitra AI',
               style: TextStyle(
                 fontSize: 32,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w800,
                 color: AppColors.textPrimary,
                 letterSpacing: -0.5,
               ),
@@ -92,11 +99,11 @@ class _SplashScreenState extends State<SplashScreen> {
             const SizedBox(height: 8),
             
             // Tagline
-            Text(
-              'Your Government Assistant',
+            const Text(
+              'Your Smart Crop & Farm Companion',
               style: TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.w400,
+                fontWeight: FontWeight.w500,
                 color: AppColors.textSecondary,
               ),
             ),
@@ -104,11 +111,11 @@ class _SplashScreenState extends State<SplashScreen> {
             
             // Loading indicator
             const SizedBox(
-              width: 40,
-              height: 40,
+              width: 36,
+              height: 36,
               child: CircularProgressIndicator(
                 strokeWidth: 3,
-                color: AppColors.primary,
+                color: Color(0xFF059669),
               ),
             ),
           ],

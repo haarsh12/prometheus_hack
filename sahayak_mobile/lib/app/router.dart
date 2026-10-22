@@ -9,6 +9,8 @@ import '../features/auth/screens/premium_login_screen.dart';
 import '../features/auth/screens/otp_verification_screen.dart';
 import '../features/home/screens/home_shell.dart';
 import '../features/voice/screens/premium_voice_screen_v2.dart';
+import '../features/crops/screens/crop_analyzer_screen.dart';
+import '../features/calendar/screens/advisory_calendar_screen.dart';
 import '../features/schemes/screens/schemes_screen.dart';
 import '../features/schemes/screens/scheme_detail_screen.dart';
 import '../features/grievances/screens/grievances_screen.dart';
@@ -19,7 +21,7 @@ import '../features/profile/screens/premium_profile_screen.dart';
 import '../features/profile/screens/edit_profile_screen.dart';
 import '../features/profile/screens/settings_screen.dart';
 
-/// Premium application router - Simplified to match website features
+/// ShetiMitra AI application router
 class AppRouter {
   static final GoRouter router = GoRouter(
     initialLocation: '/splash',
@@ -77,8 +79,12 @@ class AppRouter {
         },
       ),
 
-      // Main App Shell with Bottom Navigation
-      // Features: Voice, Schemes, Grievances, Profile (matching website)
+      // Main App Shell with 5 Bottom Navigation items:
+      // 1. Ask ShetiMitra
+      // 2. Crop Analyzer
+      // 3. Advisory Calender
+      // 4. Schemes
+      // 5. Profile
       ShellRoute(
         builder: (context, state, child) {
           return HomeShell(child: child);
@@ -87,51 +93,74 @@ class AppRouter {
           GoRoute(
             path: '/home',
             name: 'home',
-            redirect: (context, state) => '/ask-sahayak',
+            redirect: (context, state) => '/ask-shetimitra',
           ),
           
-          // Voice Assistant (Primary feature)
+          // Backward-compatibility redirect
           GoRoute(
             path: '/ask-sahayak',
-            name: 'ask-sahayak',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: const PremiumVoiceScreenV2(),
+            redirect: (context, state) => '/ask-shetimitra',
+          ),
+
+          // 1. Ask ShetiMitra (Voice Assistant)
+          GoRoute(
+            path: '/ask-shetimitra',
+            name: 'ask-shetimitra',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PremiumVoiceScreenV2(),
+            ),
+          ),
+
+          // 2. Crop Analyzer (Leaf Diagnosis)
+          GoRoute(
+            path: '/crop-analyzer',
+            name: 'crop-analyzer',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: CropAnalyzerScreen(),
+            ),
+          ),
+
+          // 3. Advisory Calendar
+          GoRoute(
+            path: '/calendar',
+            name: 'calendar',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: AdvisoryCalendarScreen(),
             ),
           ),
           
-          // Government Schemes
+          // 4. Schemes
           GoRoute(
             path: '/schemes',
             name: 'schemes',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: const SchemesScreen(),
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: SchemesScreen(),
             ),
           ),
-          
-          // Grievances
-          GoRoute(
-            path: '/grievances',
-            name: 'grievances',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: const GrievancesScreen(),
-            ),
-          ),
-          
-          // Knowledge Base
-          GoRoute(
-            path: '/knowledge',
-            name: 'knowledge',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: const KnowledgeBaseScreen(),
-            ),
-          ),
-          
-          // Profile
+
+          // 5. Profile
           GoRoute(
             path: '/profile',
             name: 'profile',
-            pageBuilder: (context, state) => NoTransitionPage(
-              child: const PremiumProfileScreen(),
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: PremiumProfileScreen(),
+            ),
+          ),
+
+          // Additional Accessible Shell Routes
+          GoRoute(
+            path: '/grievances',
+            name: 'grievances',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: GrievancesScreen(),
+            ),
+          ),
+          
+          GoRoute(
+            path: '/knowledge',
+            name: 'knowledge',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: KnowledgeBaseScreen(),
             ),
           ),
         ],
@@ -185,13 +214,13 @@ class AppRouter {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
+            const Icon(
               Icons.error_outline_rounded,
               size: 64,
               color: AppColors.error,
             ),
             const SizedBox(height: 24),
-            Text(
+            const Text(
               'Page not found',
               style: TextStyle(
                 fontSize: 20,
@@ -202,14 +231,14 @@ class AppRouter {
             const SizedBox(height: 8),
             Text(
               state.uri.path,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 14,
                 color: AppColors.muted,
               ),
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
-              onPressed: () => context.go('/ask-sahayak'),
+              onPressed: () => context.go('/ask-shetimitra'),
               icon: const Icon(Icons.home_rounded),
               label: const Text('Go Home'),
             ),
@@ -219,4 +248,3 @@ class AppRouter {
     ),
   );
 }
-

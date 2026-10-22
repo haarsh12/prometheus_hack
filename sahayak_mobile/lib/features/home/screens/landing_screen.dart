@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/premium_button.dart';
 
-/// Premium landing screen with Airbnb-style design
+/// Premium landing screen for ShetiMitra AI
 class LandingScreen extends StatelessWidget {
   const LandingScreen({super.key});
 
@@ -22,25 +22,27 @@ class LandingScreen extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    width: 34,
-                    height: 34,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF059669), Color(0xFF10B981)],
+                      ),
                       borderRadius: BorderRadius.circular(11),
                       boxShadow: AppColors.cardShadow,
                     ),
                     child: const Icon(
-                      Icons.support_agent_rounded,
+                      Icons.eco_rounded,
                       color: Colors.white,
-                      size: 20,
+                      size: 22,
                     ),
                   ),
-                  const SizedBox(width: 9),
+                  const SizedBox(width: 10),
                   const Text(
-                    'Sahayak',
+                    'ShetiMitra AI',
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.ink,
                       letterSpacing: -0.5,
                     ),
@@ -52,7 +54,7 @@ class LandingScreen extends StatelessWidget {
                     curve: Curves.easeOut,
                   ),
 
-              const SizedBox(height: 72),
+              const SizedBox(height: 52),
 
               // Hero Section
               Column(
@@ -60,11 +62,11 @@ class LandingScreen extends StatelessWidget {
                 children: [
                   // Kicker
                   Text(
-                    'WELCOME TO'.toUpperCase(),
+                    'AI-POWERED AGRICULTURE'.toUpperCase(),
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
-                      color: AppColors.primary,
+                      color: Color(0xFF059669),
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -72,25 +74,25 @@ class LandingScreen extends StatelessWidget {
 
                   // Main headline
                   const Text(
-                    'Your AI Assistant\nfor Government\nServices',
+                    'Smart Farming,\nCrop Health &\nSchemes Guide',
                     style: TextStyle(
-                      fontSize: 42,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 38,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.ink,
-                      height: 1.05,
-                      letterSpacing: -2.5,
+                      height: 1.1,
+                      letterSpacing: -1.8,
                     ),
                   ),
-                  const SizedBox(height: 23),
+                  const SizedBox(height: 18),
 
                   // Description
-                  Text(
-                    'Get instant help with schemes, grievances, and government services. Available in 10 Indian languages with voice support.',
+                  const Text(
+                    'Spot crop stress before it spreads. Get leaf diagnosis, spray weather safety checks, advisory schedules, and 45+ farmer schemes in your language.',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w400,
                       color: AppColors.muted,
-                      height: 1.65,
+                      height: 1.6,
                       letterSpacing: -0.2,
                     ),
                   ),
@@ -100,32 +102,32 @@ class LandingScreen extends StatelessWidget {
                   .fadeIn(delay: 200.ms, duration: 600.ms)
                   .slideY(begin: 0.2, end: 0, curve: Curves.easeOut),
 
-              const SizedBox(height: 48),
+              const SizedBox(height: 36),
 
               // Action buttons
               Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   PremiumButton(
-                    text: 'Start with Voice',
+                    text: 'Ask ShetiMitra (Voice)',
                     icon: Icons.mic_rounded,
-                    onPressed: () => context.go('/ask-sahayak'),
+                    onPressed: () => context.go('/ask-shetimitra'),
                   ),
                   const SizedBox(height: 12),
                   PremiumButton(
-                    text: 'Browse as Guest',
+                    text: 'Analyse a Crop Leaf',
                     style: PremiumButtonStyle.outline,
-                    icon: Icons.explore_outlined,
-                    onPressed: () => context.go('/schemes'),
+                    icon: Icons.energy_savings_leaf_outlined,
+                    onPressed: () => context.go('/crop-analyzer'),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   Center(
                     child: TextButton(
                       onPressed: () => context.go('/login'),
-                      child: Row(
+                      child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
+                          Text(
                             'Already have an account?',
                             style: TextStyle(
                               fontSize: 14,
@@ -133,10 +135,10 @@ class LandingScreen extends StatelessWidget {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          SizedBox(width: 6),
                           Text(
                             'Sign in',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               color: AppColors.ink,
                               fontWeight: FontWeight.w700,
@@ -154,41 +156,41 @@ class LandingScreen extends StatelessWidget {
                   .fadeIn(delay: 400.ms, duration: 600.ms)
                   .slideY(begin: 0.1, end: 0, curve: Curves.easeOut),
 
-              const SizedBox(height: 60),
+              const SizedBox(height: 40),
 
               // Trust indicators
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _TrustBadge(
+                  const _TrustBadge(
                     icon: Icons.verified_user_rounded,
-                    label: 'Secure',
+                    label: 'On-device Vision',
                   ),
                   Container(
                     width: 4,
                     height: 4,
-                    margin: const EdgeInsets.symmetric(horizontal: 15),
+                    margin: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: const BoxDecoration(
                       color: Color(0xFFB7B7B7),
                       shape: BoxShape.circle,
                     ),
                   ),
-                  _TrustBadge(
+                  const _TrustBadge(
                     icon: Icons.language_rounded,
                     label: '10 Languages',
                   ),
                   Container(
                     width: 4,
                     height: 4,
-                    margin: const EdgeInsets.symmetric(horizontal: 15),
+                    margin: const EdgeInsets.symmetric(horizontal: 14),
                     decoration: const BoxDecoration(
                       color: Color(0xFFB7B7B7),
                       shape: BoxShape.circle,
                     ),
                   ),
-                  _TrustBadge(
-                    icon: Icons.support_rounded,
-                    label: '24/7 Available',
+                  const _TrustBadge(
+                    icon: Icons.agriculture_rounded,
+                    label: 'Farm Guidance',
                   ),
                 ],
               )
@@ -196,32 +198,32 @@ class LandingScreen extends StatelessWidget {
                   .fadeIn(delay: 600.ms, duration: 600.ms)
                   .slideY(begin: 0.1, end: 0),
 
-              const SizedBox(height: 40),
+              const SizedBox(height: 36),
 
               // Features preview
-              _FeatureCard(
-                icon: Icons.campaign_rounded,
-                title: 'Voice First',
+              const _FeatureCard(
+                icon: Icons.energy_savings_leaf_rounded,
+                title: 'Crop Analyzer',
                 description:
-                    'Talk naturally in your language. Our AI understands and responds.',
+                    'Snap a photo of any crop leaf to identify fungal, pest, or nutrient stress.',
               ).animate().fadeIn(delay: 700.ms).slideX(begin: -0.1, end: 0),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-              _FeatureCard(
-                icon: Icons.account_balance_rounded,
-                title: 'Government Schemes',
+              const _FeatureCard(
+                icon: Icons.calendar_month_rounded,
+                title: 'Advisory Calendar',
                 description:
-                    'Discover schemes you qualify for and learn how to apply.',
+                    'Spray weather gates and tailored farm schedules to plan field applications.',
               ).animate().fadeIn(delay: 800.ms).slideX(begin: -0.1, end: 0),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-              _FeatureCard(
-                icon: Icons.support_agent_rounded,
-                title: 'Report Issues',
+              const _FeatureCard(
+                icon: Icons.account_balance_rounded,
+                title: '45+ Government Schemes',
                 description:
-                    'Submit grievances and track their resolution status easily.',
+                    'Explore direct subsidies, crop insurance, solar pumps, and PM-KISAN support.',
               ).animate().fadeIn(delay: 900.ms).slideX(begin: -0.1, end: 0),
             ],
           ),
@@ -242,14 +244,14 @@ class _TrustBadge extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: AppColors.ink),
-        const SizedBox(width: 5),
+        Icon(icon, size: 16, color: const Color(0xFF059669)),
+        const SizedBox(width: 6),
         Text(
           label,
           style: const TextStyle(
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF5B5B5B),
+            color: AppColors.muted,
           ),
         ),
       ],
@@ -271,31 +273,24 @@ class _FeatureCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE5E5E5), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadow,
-            offset: const Offset(0, 2),
-            blurRadius: 9,
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 44,
-            height: 44,
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: AppColors.surfaceAlt,
-              borderRadius: BorderRadius.circular(11),
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: AppColors.ink, size: 22),
+            child: Icon(icon, size: 22, color: const Color(0xFF059669)),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -303,18 +298,16 @@ class _FeatureCard extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.ink,
-                    letterSpacing: -0.3,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w400,
                     color: AppColors.muted,
                     height: 1.4,
                   ),

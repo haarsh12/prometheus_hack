@@ -117,6 +117,45 @@ class ApiClient {
     }
   }
 
+  /// Multipart POST request for file uploads (e.g. crop leaf analysis)
+  Future<dynamic> postMultipart(
+    String endpoint, {
+    required List<int> fileBytes,
+    required String filename,
+    required String fieldName,
+    Map<String, String>? fields,
+    Map<String, String>? extraHeaders,
+  }) async {
+    final uri = _buildUri(endpoint);
+    final headers = await _buildHeaders(extraHeaders);
+    headers.remove('Content-Type');
+
+    try {
+      _logger.d('POST (multipart) $uri');
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(headers);
+
+      if (fields != null) {
+        request.fields.addAll(fields);
+      }
+
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          fieldName,
+          fileBytes,
+          filename: filename,
+        ),
+      );
+
+      final streamedResponse = await request.send().timeout(ApiConfig.receiveTimeout);
+      final response = await http.Response.fromStream(streamedResponse);
+      return _handleResponse(response);
+    } catch (e) {
+      _logger.e('POST (multipart) $endpoint failed: $e');
+      throw _handleError(e);
+    }
+  }
+
   /// Build URI with query parameters
   Uri _buildUri(String endpoint, [Map<String, String>? queryParams]) {
     final url = '$baseUrl$endpoint';
@@ -146,8 +185,7 @@ class ApiClient {
       headers.addAll(extraHeaders);
     }
 
-    // Keep the client identity declaration consistent for all mobile API
-    // calls. The server treats it only as an AI delivery/capability hint.
+    // Stable device declaration
     headers['X-Sahayak-Device'] = ApiConfig.clientDevice;
 
     return headers;

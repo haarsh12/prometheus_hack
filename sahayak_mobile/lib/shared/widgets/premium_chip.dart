@@ -54,7 +54,7 @@ class PremiumChip extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: isSelected ? FontWeight.w650 : FontWeight.w500,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                 color: txtColor,
                 letterSpacing: 0.1,
               ),

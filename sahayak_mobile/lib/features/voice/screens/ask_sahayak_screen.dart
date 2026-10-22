@@ -80,7 +80,7 @@ class _AskSahayakScreenState extends State<AskSahayakScreen>
         elevation: 0,
         backgroundColor: AppColors.surface,
         title: const Text(
-          'Ask Sahayak',
+          'Ask ShetiMitra',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w600,

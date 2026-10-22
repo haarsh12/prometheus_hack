@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 
-/// Main app shell with bottom navigation bar
+/// Main app shell with 5-tab bottom navigation bar for ShetiMitra AI
 class HomeShell extends StatefulWidget {
   final Widget child;
 
@@ -20,28 +20,28 @@ class _HomeShellState extends State<HomeShell> {
 
   final List<_NavItem> _navItems = [
     _NavItem(
-      route: '/ask-sahayak',
+      route: '/ask-shetimitra',
       icon: Icons.mic_none_rounded,
       activeIcon: Icons.mic_rounded,
-      label: 'Voice',
+      label: 'Ask ShetiMitra',
+    ),
+    _NavItem(
+      route: '/crop-analyzer',
+      icon: Icons.energy_savings_leaf_outlined,
+      activeIcon: Icons.energy_savings_leaf_rounded,
+      label: 'Crop Analyzer',
+    ),
+    _NavItem(
+      route: '/calendar',
+      icon: Icons.calendar_month_outlined,
+      activeIcon: Icons.calendar_month_rounded,
+      label: 'Advisory Calender',
     ),
     _NavItem(
       route: '/schemes',
       icon: Icons.account_balance_outlined,
       activeIcon: Icons.account_balance_rounded,
       label: 'Schemes',
-    ),
-    _NavItem(
-      route: '/grievances',
-      icon: Icons.assignment_outlined,
-      activeIcon: Icons.assignment_rounded,
-      label: 'Grievances',
-    ),
-    _NavItem(
-      route: '/knowledge',
-      icon: Icons.menu_book_outlined,
-      activeIcon: Icons.menu_book_rounded,
-      label: 'Knowledge',
     ),
     _NavItem(
       route: '/profile',
@@ -66,6 +66,11 @@ class _HomeShellState extends State<HomeShell> {
 
   void _updateCurrentIndex() {
     final location = GoRouterState.of(context).uri.path;
+    // Map legacy /ask-sahayak to Ask ShetiMitra tab
+    if (location.startsWith('/ask-sahayak') || location.startsWith('/ask-shetimitra')) {
+      if (_currentIndex != 0) setState(() => _currentIndex = 0);
+      return;
+    }
     final index = _navItems.indexWhere((item) => location.startsWith(item.route));
     if (index != -1 && index != _currentIndex) {
       setState(() => _currentIndex = index);
@@ -152,20 +157,23 @@ class _NavBarItem extends StatelessWidget {
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
                 color: isActive ? AppColors.ink : Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(18),
               ),
               child: Icon(
                 icon,
-                size: 24,
+                size: 22,
                 color: isActive ? Colors.white : AppColors.muted,
               ),
             ),
             const SizedBox(height: 2),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,

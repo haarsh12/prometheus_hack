@@ -82,7 +82,7 @@ class PremiumProfileScreen extends StatelessWidget {
                 // Create Account
                 _buildActionCard(
                   title: 'Create Account',
-                  subtitle: 'Register a new Sahayak account',
+                  subtitle: 'Register a new ShetiMitra account',
                   icon: Icons.person_add_rounded,
                   color: AppColors.primary,
                   onTap: () {
@@ -186,14 +186,14 @@ class PremiumProfileScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
-                        Icons.support_agent_rounded,
+                        Icons.eco_rounded,
                         color: AppColors.primary,
                         size: 32,
                       ),
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Sahayak AI',
+                      'ShetiMitra AI',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -210,7 +210,7 @@ class PremiumProfileScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      '© Sahayak AI\nYour Government Assistant',
+                      '© ShetiMitra AI\nYour Smart Farm & Crop Companion',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12,

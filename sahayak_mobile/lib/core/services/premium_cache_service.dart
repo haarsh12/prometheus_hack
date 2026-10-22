@@ -40,7 +40,7 @@ class PremiumCacheService {
   /// Check if device is online
   static Future<bool> isOnline() async {
     final connectivityResult = await Connectivity().checkConnectivity();
-    return connectivityResult != ConnectivityResult.none;
+    return !connectivityResult.contains(ConnectivityResult.none) && connectivityResult.isNotEmpty;
   }
 
   // ========== SCHEMES CACHING ==========

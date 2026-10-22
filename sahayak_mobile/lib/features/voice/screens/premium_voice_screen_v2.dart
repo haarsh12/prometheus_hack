@@ -572,14 +572,17 @@ class _PremiumVoiceScreenV2State extends State<PremiumVoiceScreenV2> {
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFFA73439), // Brand red color
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF059669), Color(0xFF10B981)],
+              ),
               shape: BoxShape.circle,
             ),
             padding: const EdgeInsets.all(8),
-            child: Image.asset(
-              'assets/iconsahayak.png',
-              fit: BoxFit.contain,
+            child: const Icon(
+              Icons.eco_rounded,
+              color: Colors.white,
+              size: 22,
             ),
           ),
           const SizedBox(width: 10),
@@ -587,7 +590,7 @@ class _PremiumVoiceScreenV2State extends State<PremiumVoiceScreenV2> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                isGuest ? 'Guest' : 'User',
+                isGuest ? 'Guest Farmer' : 'Farmer',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -595,7 +598,7 @@ class _PremiumVoiceScreenV2State extends State<PremiumVoiceScreenV2> {
                 ),
               ),
               const Text(
-                'Sahayak AI',
+                'ShetiMitra AI',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w400,
@@ -829,9 +832,9 @@ class _PremiumVoiceScreenV2State extends State<PremiumVoiceScreenV2> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Label: YOU or SAHAYAK AI
+                      // Label: YOU or SHETIMITRA AI
                       Text(
-                        isUser ? 'YOU' : 'SAHAYAK AI',
+                        isUser ? 'YOU' : 'SHETIMITRA AI',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
