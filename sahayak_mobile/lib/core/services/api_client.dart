@@ -8,12 +8,10 @@ import 'auth_token_store.dart';
 /// Centralized HTTP client for all API communication
 /// Handles authentication, error handling, and logging
 class ApiClient {
-  static final Logger _logger = Logger(
-    printer: PrettyPrinter(methodCount: 0),
-  );
+  static final Logger _logger = Logger(printer: PrettyPrinter(methodCount: 0));
 
   final AuthTokenStore _tokenStore = AuthTokenStore();
-  
+
   String get baseUrl => ApiConfig.baseUrl;
 
   /// GET request
@@ -27,7 +25,7 @@ class ApiClient {
 
     try {
       _logger.d('GET $uri');
-      
+
       final response = await http
           .get(uri, headers: headers)
           .timeout(ApiConfig.receiveTimeout);
@@ -53,11 +51,7 @@ class ApiClient {
       _logger.d('Body: ${jsonEncode(data)}');
 
       final response = await http
-          .post(
-            uri,
-            headers: headers,
-            body: jsonEncode(data),
-          )
+          .post(uri, headers: headers, body: jsonEncode(data))
           .timeout(ApiConfig.receiveTimeout);
 
       return _handleResponse(response);
@@ -81,11 +75,7 @@ class ApiClient {
       _logger.d('Body: ${jsonEncode(data)}');
 
       final response = await http
-          .put(
-            uri,
-            headers: headers,
-            body: jsonEncode(data),
-          )
+          .put(uri, headers: headers, body: jsonEncode(data))
           .timeout(ApiConfig.receiveTimeout);
 
       return _handleResponse(response);
@@ -125,6 +115,7 @@ class ApiClient {
     required String fieldName,
     Map<String, String>? fields,
     Map<String, String>? extraHeaders,
+    Duration? timeout,
   }) async {
     final uri = _buildUri(endpoint);
     final headers = await _buildHeaders(extraHeaders);
@@ -140,15 +131,14 @@ class ApiClient {
       }
 
       request.files.add(
-        http.MultipartFile.fromBytes(
-          fieldName,
-          fileBytes,
-          filename: filename,
-        ),
+        http.MultipartFile.fromBytes(fieldName, fileBytes, filename: filename),
       );
 
-      final streamedResponse = await request.send().timeout(ApiConfig.receiveTimeout);
-      final response = await http.Response.fromStream(streamedResponse);
+      final requestTimeout = timeout ?? ApiConfig.receiveTimeout;
+      final response = await request
+          .send()
+          .then(http.Response.fromStream)
+          .timeout(requestTimeout);
       return _handleResponse(response);
     } catch (e) {
       _logger.e('POST (multipart) $endpoint failed: $e');
@@ -200,7 +190,7 @@ class ApiClient {
       if (response.body.isEmpty) {
         return {'message': 'Success'};
       }
-      
+
       try {
         return jsonDecode(response.body);
       } catch (e) {
@@ -210,25 +200,25 @@ class ApiClient {
     } else if (response.statusCode == 401) {
       // Unauthorized - clear token
       _tokenStore.delete();
-      throw ApiException(
-        'Unauthorized. Please login again.',
-        statusCode: 401,
-      );
+      throw ApiException('Unauthorized. Please login again.', statusCode: 401);
     } else if (response.statusCode == 403) {
       throw ApiException(
         'Forbidden. You do not have permission.',
         statusCode: 403,
       );
     } else if (response.statusCode == 404) {
-      throw ApiException(
-        'Resource not found.',
-        statusCode: 404,
-      );
+      throw ApiException('Resource not found.', statusCode: 404);
     } else if (response.statusCode >= 500) {
-      throw ApiException(
-        'Server error. Please try again later.',
-        statusCode: response.statusCode,
-      );
+      String message = 'Server error. Please try again later.';
+      try {
+        final body = jsonDecode(response.body);
+        if (body is Map && body['detail'] is String) {
+          message = body['detail'] as String;
+        }
+      } catch (_) {
+        // Keep the bounded default rather than rendering an HTML proxy error.
+      }
+      throw ApiException(message, statusCode: response.statusCode);
     } else {
       // Other client errors
       String message = 'Request failed';
@@ -238,7 +228,7 @@ class ApiClient {
       } catch (_) {
         message = response.body.isNotEmpty ? response.body : message;
       }
-      
+
       throw ApiException(message, statusCode: response.statusCode);
     }
   }
@@ -248,7 +238,7 @@ class ApiClient {
     if (error is ApiException) {
       return error;
     }
-    
+
     if (error.toString().contains('SocketException') ||
         error.toString().contains('HandshakeException')) {
       return ApiException(
@@ -256,14 +246,11 @@ class ApiClient {
         statusCode: 0,
       );
     }
-    
+
     if (error.toString().contains('TimeoutException')) {
-      return ApiException(
-        'Request timeout. Please try again.',
-        statusCode: 0,
-      );
+      return ApiException('Request timeout. Please try again.', statusCode: 0);
     }
-    
+
     return ApiException('Unexpected error: $error');
   }
 }

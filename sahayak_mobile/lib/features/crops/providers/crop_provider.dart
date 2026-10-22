@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/config/api_config.dart';
 import '../../../core/services/api_client.dart';
 import '../models/crop_diagnosis_model.dart';
 import '../models/spray_weather_model.dart';
@@ -8,27 +9,9 @@ import '../models/spray_weather_model.dart';
 class CropProvider extends ChangeNotifier {
   final ApiClient _api = ApiClient();
 
-  static const List<String> supportedCrops = [
-    'Cotton',
-    'Wheat',
-    'Paddy',
-    'Soybean',
-    'Tomato',
-  ];
-
-  static const List<String> growthStages = [
-    'Seedling',
-    'Vegetative',
-    'Flowering',
-    'Fruiting / grain fill',
-    'Maturity',
-  ];
-
-  String? _selectedCrop = 'Cotton';
-  String? _selectedGrowthStage = 'Vegetative';
   XFile? _selectedFile;
   Uint8List? _imageBytes;
-  
+
   bool _isAnalyzing = false;
   String? _errorMessage;
   CropDiagnosisModel? _currentDiagnosis;
@@ -40,8 +23,6 @@ class CropProvider extends ChangeNotifier {
   String? _weatherError;
 
   // Getters
-  String? get selectedCrop => _selectedCrop;
-  String? get selectedGrowthStage => _selectedGrowthStage;
   XFile? get selectedFile => _selectedFile;
   Uint8List? get imageBytes => _imageBytes;
   bool get isAnalyzing => _isAnalyzing;
@@ -51,16 +32,6 @@ class CropProvider extends ChangeNotifier {
   SprayWeatherModel? get sprayWeather => _sprayWeather;
   bool get isLoadingWeather => _isLoadingWeather;
   String? get weatherError => _weatherError;
-
-  void setSelectedCrop(String? crop) {
-    _selectedCrop = crop;
-    notifyListeners();
-  }
-
-  void setSelectedGrowthStage(String? stage) {
-    _selectedGrowthStage = stage;
-    notifyListeners();
-  }
 
   Future<void> setImage(XFile? file) async {
     _selectedFile = file;
@@ -95,21 +66,15 @@ class CropProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final fields = <String, String>{};
-      if (_selectedCrop != null && _selectedCrop!.isNotEmpty) {
-        fields['crop'] = _selectedCrop!;
-      }
-      if (_selectedGrowthStage != null && _selectedGrowthStage!.isNotEmpty) {
-        fields['growth_stage'] = _selectedGrowthStage!;
-      }
-
-      final filename = _selectedFile!.name.isNotEmpty ? _selectedFile!.name : 'leaf.jpg';
+      final filename = _selectedFile!.name.isNotEmpty
+          ? _selectedFile!.name
+          : 'leaf.jpg';
       final response = await _api.postMultipart(
-        '/api/crop-diagnoses',
+        ApiConfig.cropDiagnoses,
         fileBytes: _imageBytes!,
         filename: filename,
         fieldName: 'image',
-        fields: fields,
+        timeout: ApiConfig.cropDiagnosisTimeout,
       );
 
       final diagnosis = CropDiagnosisModel.fromJson(response);
@@ -128,7 +93,10 @@ class CropProvider extends ChangeNotifier {
   }
 
   /// Check conservative spray weather window for farmer's location
-  Future<void> checkSprayWeather({double latitude = 19.0760, double longitude = 72.8777}) async {
+  Future<void> checkSprayWeather({
+    double latitude = 19.0760,
+    double longitude = 72.8777,
+  }) async {
     _isLoadingWeather = true;
     _weatherError = null;
     notifyListeners();
@@ -160,19 +128,17 @@ class CropProvider extends ChangeNotifier {
       for (int i = 0; i < _currentDiagnosis!.treatment.length; i++) {
         final step = _currentDiagnosis!.treatment[i];
         final eventDate = now.add(Duration(days: (i + 1) * 2));
-        final dateString = "${eventDate.year.toString().padLeft(4, '0')}-${eventDate.month.toString().padLeft(2, '0')}-${eventDate.day.toString().padLeft(2, '0')}";
-        
-        await _api.post(
-          '/api/farm-calendar',
-          {
-            'event_date': dateString,
-            'title': step.title,
-            'detail': step.detail,
-            'kind': step.kind == 'spray' ? 'treatment' : 'check',
-            'crop': _currentDiagnosis!.crop,
-            'origin': 'diagnosis',
-          },
-        );
+        final dateString =
+            "${eventDate.year.toString().padLeft(4, '0')}-${eventDate.month.toString().padLeft(2, '0')}-${eventDate.day.toString().padLeft(2, '0')}";
+
+        await _api.post('/api/farm-calendar', {
+          'event_date': dateString,
+          'title': step.title,
+          'detail': step.detail,
+          'kind': step.kind == 'spray' ? 'treatment' : 'check',
+          'crop': _currentDiagnosis!.crop,
+          'origin': 'diagnosis',
+        });
       }
       return true;
     } catch (e) {

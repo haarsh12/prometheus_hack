@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 /// Central API configuration for ShetiMitra AI mobile application
-/// 
+///
 /// Override at build time using:
 /// flutter run --dart-define=API_BASE_URL=http://your-server:8000
 class ApiConfig {
@@ -14,7 +14,10 @@ class ApiConfig {
     _overrideUrl = url.trim().replaceFirst(RegExp(r'/+$'), '');
   }
 
-  static const String _envUrl = String.fromEnvironment('API_BASE_URL', defaultValue: '');
+  static const String _envUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: '',
+  );
 
   /// Base URL for all HTTP API calls
   static String get baseUrl {
@@ -49,10 +52,10 @@ class ApiConfig {
   static const String authVerify = '$auth/otp/verify';
   static const String authRefresh = '$auth/refresh';
   static const String authProfile = '$auth/profile';
-  
+
   static const String voice = '/voice';
   static const String voiceToken = '/api/token';
-  
+
   static const String services = '/api/services';
   static const String schemes = '/api/schemes';
   static const String grievances = '/api/grievances';
@@ -62,8 +65,13 @@ class ApiConfig {
   static const String cropDiagnoses = '/api/crop-diagnoses';
   static const String cropWeather = '/api/crop-weather';
   static const String farmCalendar = '/api/farm-calendar';
-  
+
   // Timeouts
   static const Duration connectionTimeout = Duration(seconds: 30);
   static const Duration receiveTimeout = Duration(seconds: 45);
+
+  /// CropVision may need up to 50 seconds for a high-resolution leaf photo.
+  /// Keep a small network buffer so the app does not abandon a valid result
+  /// before FastAPI can return it.
+  static const Duration cropDiagnosisTimeout = Duration(seconds: 70);
 }

@@ -36,9 +36,9 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
         await provider.setImage(image);
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to select image: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to select image: $e')));
     }
   }
 
@@ -83,7 +83,11 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
                 color: const Color(0xFF10B981).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.eco_rounded, color: Color(0xFF059669), size: 20),
+              child: const Icon(
+                Icons.eco_rounded,
+                color: Color(0xFF059669),
+                size: 20,
+              ),
             ),
             const SizedBox(width: 10),
             const Text(
@@ -105,7 +109,7 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
                     '1. Hold the camera steady in good daylight.\n'
                     '2. Focus on a single leaf showing symptoms.\n'
                     '3. Avoid heavy shadows or blurry angles.\n'
-                    '4. Select crop type and stage for highest accuracy.',
+                    '4. CropVision identifies the crop and visible growth stage directly from the photo.',
                   ),
                   actions: [
                     TextButton(
@@ -134,11 +138,15 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.psychology_outlined, color: Color(0xFF166534), size: 20),
+                  const Icon(
+                    Icons.psychology_outlined,
+                    color: Color(0xFF166534),
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'ShetiMitra CropVision: On-device & AI leaf disease screening',
+                      'ShetiMitra CropVision screens the leaf photo directly',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -155,17 +163,60 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
             _buildImageCard(provider),
             const SizedBox(height: 16),
 
-            // Crop Context Selectors
-            _buildContextSelectors(provider),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.auto_awesome_outlined,
+                    color: Color(0xFF059669),
+                    size: 20,
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Photo-first analysis',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'CropVision reads the likely crop, growth stage and visible stress pattern from the leaf photo. No field form is needed.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.muted,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 16),
 
             // Analyze Action Button
-            if (provider.selectedFile != null && provider.currentDiagnosis == null)
+            if (provider.selectedFile != null &&
+                provider.currentDiagnosis == null)
               PremiumButton(
                 text: 'Analyse Crop Leaf',
                 icon: Icons.search_rounded,
                 isLoading: provider.isAnalyzing,
-                onPressed: provider.isAnalyzing ? null : () => provider.analyzeCrop(),
+                onPressed: provider.isAnalyzing
+                    ? null
+                    : () => provider.analyzeCrop(),
               ),
 
             // Error display
@@ -180,12 +231,19 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                    Icon(
+                      Icons.error_outline,
+                      color: Colors.red.shade700,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         provider.errorMessage!,
-                        style: TextStyle(color: Colors.red.shade800, fontSize: 13),
+                        style: TextStyle(
+                          color: Colors.red.shade800,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ],
@@ -292,7 +350,9 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
                   label: const Text('Camera'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
               ),
@@ -306,62 +366,10 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
                     backgroundColor: const Color(0xFF059669),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContextSelectors(CropProvider provider) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Field Context (Optional)',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  value: provider.selectedCrop,
-                  decoration: InputDecoration(
-                    labelText: 'Crop',
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  items: CropProvider.supportedCrops.map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis))).toList(),
-                  onChanged: (val) => provider.setSelectedCrop(val),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  isExpanded: true,
-                  value: provider.selectedGrowthStage,
-                  decoration: InputDecoration(
-                    labelText: 'Stage',
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  items: CropProvider.growthStages.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis))).toList(),
-                  onChanged: (val) => provider.setSelectedGrowthStage(val),
                 ),
               ),
             ],
@@ -395,7 +403,10 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: sevColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
@@ -440,7 +451,11 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
           const SizedBox(height: 12),
           Text(
             diagnosis.summary,
-            style: const TextStyle(fontSize: 14, color: AppColors.textPrimary, height: 1.45),
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textPrimary,
+              height: 1.45,
+            ),
           ),
           if (diagnosis.observations.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -457,9 +472,18 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('• ', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text(
+                      '• ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                     Expanded(
-                      child: Text(obs, style: const TextStyle(fontSize: 13, color: AppColors.muted)),
+                      child: Text(
+                        obs,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.muted,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -487,7 +511,11 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.healing_rounded, color: Color(0xFF059669), size: 20),
+              const Icon(
+                Icons.healing_rounded,
+                color: Color(0xFF059669),
+                size: 20,
+              ),
               const SizedBox(width: 8),
               const Text(
                 'Recommended Treatment Path',
@@ -513,7 +541,10 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: kindColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
@@ -530,19 +561,29 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
                       if (step.timing.isNotEmpty)
                         Text(
                           step.timing,
-                          style: const TextStyle(fontSize: 11, color: AppColors.muted),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.muted,
+                          ),
                         ),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Text(
                     step.title,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     step.detail,
-                    style: const TextStyle(fontSize: 13, color: AppColors.muted, height: 1.4),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.muted,
+                      height: 1.4,
+                    ),
                   ),
                 ],
               ),
@@ -561,12 +602,19 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle_outline, color: Colors.green, size: 18),
+                  const Icon(
+                    Icons.check_circle_outline,
+                    color: Colors.green,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       _scheduleSuccessMessage!,
-                      style: TextStyle(color: Colors.green.shade900, fontSize: 13),
+                      style: TextStyle(
+                        color: Colors.green.shade900,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ],
@@ -590,15 +638,24 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Icon(Icons.calendar_month_outlined, size: 18),
-              label: Text(_isScheduling ? 'Scheduling...' : 'Add Steps to Advisory Calendar'),
+              label: Text(
+                _isScheduling
+                    ? 'Scheduling...'
+                    : 'Add Steps to Advisory Calendar',
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.ink,
                 foregroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(44),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
         ],
@@ -621,7 +678,11 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.cloud_sync_outlined, color: Colors.blueAccent, size: 20),
+              const Icon(
+                Icons.cloud_sync_outlined,
+                color: Colors.blueAccent,
+                size: 20,
+              ),
               const SizedBox(width: 8),
               const Text(
                 'Spray Weather Safety Gate',
@@ -642,12 +703,16 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
               decoration: BoxDecoration(
                 color: weather.isSafe
                     ? Colors.green.shade50
-                    : (weather.isCaution ? Colors.amber.shade50 : Colors.red.shade50),
+                    : (weather.isCaution
+                          ? Colors.amber.shade50
+                          : Colors.red.shade50),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: weather.isSafe
                       ? Colors.green.shade200
-                      : (weather.isCaution ? Colors.amber.shade200 : Colors.red.shade200),
+                      : (weather.isCaution
+                            ? Colors.amber.shade200
+                            : Colors.red.shade200),
                 ),
               ),
               child: Row(
@@ -655,10 +720,14 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
                   Icon(
                     weather.isSafe
                         ? Icons.check_circle_rounded
-                        : (weather.isCaution ? Icons.warning_amber_rounded : Icons.cancel_rounded),
+                        : (weather.isCaution
+                              ? Icons.warning_amber_rounded
+                              : Icons.cancel_rounded),
                     color: weather.isSafe
                         ? Colors.green.shade700
-                        : (weather.isCaution ? Colors.amber.shade900 : Colors.red.shade700),
+                        : (weather.isCaution
+                              ? Colors.amber.shade900
+                              : Colors.red.shade700),
                     size: 24,
                   ),
                   const SizedBox(width: 10),
@@ -673,13 +742,18 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
                             fontSize: 13,
                             color: weather.isSafe
                                 ? Colors.green.shade900
-                                : (weather.isCaution ? Colors.amber.shade900 : Colors.red.shade900),
+                                : (weather.isCaution
+                                      ? Colors.amber.shade900
+                                      : Colors.red.shade900),
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           weather.summary,
-                          style: const TextStyle(fontSize: 12, color: AppColors.textPrimary),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textPrimary,
+                          ),
                         ),
                       ],
                     ),
@@ -691,26 +765,37 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
               children: [
                 if (weather.temperatureC != null)
                   Expanded(
-                    child: _metricBox('Temp', '${weather.temperatureC!.toStringAsFixed(1)}°C', Icons.thermostat),
+                    child: _metricBox(
+                      'Temp',
+                      '${weather.temperatureC!.toStringAsFixed(1)}°C',
+                      Icons.thermostat,
+                    ),
                   ),
                 const SizedBox(width: 8),
                 if (weather.windMps != null)
                   Expanded(
-                    child: _metricBox('Wind', '${weather.windMps!.toStringAsFixed(1)} m/s', Icons.air),
+                    child: _metricBox(
+                      'Wind',
+                      '${weather.windMps!.toStringAsFixed(1)} m/s',
+                      Icons.air,
+                    ),
                   ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: _metricBox(
                     'Rain',
                     weather.rainExpected ? 'Expected' : 'None',
-                    weather.rainExpected ? Icons.water_drop : Icons.wb_sunny_outlined,
+                    weather.rainExpected
+                        ? Icons.water_drop
+                        : Icons.wb_sunny_outlined,
                   ),
                 ),
               ],
             ),
           ] else
             Text(
-              provider.weatherError ?? 'Weather safety status available when GPS is accessible.',
+              provider.weatherError ??
+                  'Weather safety status available when GPS is accessible.',
               style: const TextStyle(fontSize: 12, color: AppColors.muted),
             ),
         ],
@@ -730,8 +815,14 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
         children: [
           Icon(icon, size: 16, color: AppColors.muted),
           const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 11, color: AppColors.muted)),
-          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 11, color: AppColors.muted),
+          ),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
