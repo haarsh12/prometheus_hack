@@ -1,10 +1,12 @@
-import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
+import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'react'
 import {
   Bell,
   BookOpenCheck,
   CalendarDays,
   ChevronRight,
   CloudSun,
+  CloudRain,
+  Compass,
   FilePlus2,
   FileText,
   Fingerprint,
@@ -13,13 +15,20 @@ import {
   LoaderCircle,
   MessageSquareWarning,
   Mic,
+  MapPinned,
   MoreHorizontal,
+  Navigation,
+  RefreshCw,
   ScanLine,
+  ShieldCheck,
+  ThermometerSun,
   Trash2,
   Upload,
+  Wind,
 } from 'lucide-react'
 
 import type { SahayakAuth } from '../hooks/useAuth'
+import { getCropWeather, type CropWeatherCheck } from '../lib/api'
 import { biometricErrorMessage, supportsDeviceBiometrics } from '../lib/webauthn'
 import type { SahayakProfile, UserType } from '../types/api'
 import type { AppRoute } from '../types/navigation'
@@ -40,6 +49,95 @@ function profileName(profile: SahayakProfile): string {
   return profile.full_name?.split(/\s+/)[0] || 'there'
 }
 
+const JIT_CAMPUS = {
+  latitude: 21.247499,
+  longitude: 79.050797,
+  label: 'JIT Campus, Lonara, Nagpur',
+  address: 'Off Koradi Road, Lonara, Nagpur 441111',
+  mapUrl: 'https://www.openstreetmap.org/?mlat=21.247499&mlon=79.050797#map=16/21.247499/79.050797',
+  embedUrl: 'https://www.openstreetmap.org/export/embed.html?bbox=79.043%2C21.243%2C79.058%2C21.252&layer=mapnik&marker=21.247499%2C79.050797',
+} as const
+
+function weatherAction(weather: CropWeatherCheck | null, error: string | null): { title: string; detail: string; tone: 'safe' | 'caution' | 'avoid' | 'unknown' } {
+  if (error || !weather) {
+    return {
+      title: 'Confirm conditions before spraying',
+      detail: 'The local weather feed is unavailable. Check rain, wind and heat in the field before scheduling a foliar spray.',
+      tone: 'unknown',
+    }
+  }
+  if (weather.status === 'avoid') {
+    return { title: 'Delay foliar spraying', detail: weather.summary, tone: 'avoid' }
+  }
+  if (weather.status === 'caution') {
+    return { title: 'Use a cooler, calmer window', detail: weather.summary, tone: 'caution' }
+  }
+  return { title: 'Weather gate is clear for now', detail: weather.summary, tone: 'safe' }
+}
+
+function FarmLocationPanel({ onNavigate }: { onNavigate: Navigate }) {
+  const [weather, setWeather] = useState<CropWeatherCheck | null>(null)
+  const [weatherError, setWeatherError] = useState<string | null>(null)
+  const [isLoadingWeather, setIsLoadingWeather] = useState(true)
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null)
+
+  async function refreshWeather(): Promise<void> {
+    setIsLoadingWeather(true)
+    setWeatherError(null)
+    try {
+      const result = await getCropWeather(JIT_CAMPUS.latitude, JIT_CAMPUS.longitude)
+      setWeather(result)
+      setUpdatedAt(new Date())
+    } catch (error) {
+      setWeather(null)
+      setWeatherError(error instanceof Error ? error.message : 'The local weather feed is unavailable.')
+    } finally {
+      setIsLoadingWeather(false)
+    }
+  }
+
+  useEffect(() => { void refreshWeather() }, [])
+  const action = weatherAction(weather, weatherError)
+  const updatedLabel = updatedAt
+    ? new Intl.DateTimeFormat('en-IN', { hour: 'numeric', minute: '2-digit' }).format(updatedAt)
+    : 'Not checked yet'
+
+  return (
+    <section className="farm-location-panel" aria-labelledby="farm-location-heading">
+      <div className="farm-location-panel__heading">
+        <div>
+          <p className="section-kicker">Your field location</p>
+          <h2 id="farm-location-heading">JIT Campus field view</h2>
+          <p>Use this reference point to check local weather before crop scouting, irrigation or spraying.</p>
+        </div>
+        <span className="farm-location-panel__status"><MapPinned size={15} /> Location set</span>
+      </div>
+      <div className="farm-location-panel__grid">
+        <div className="farm-map-card">
+          <iframe
+            aria-label="Map centred on JIT Campus, Lonara, Nagpur"
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            src={JIT_CAMPUS.embedUrl}
+            title="JIT Campus field location"
+          />
+          <div className="farm-map-card__caption"><span><Navigation size={16} /> <b>{JIT_CAMPUS.label}</b><small>{JIT_CAMPUS.address}</small></span><a href={JIT_CAMPUS.mapUrl} rel="noreferrer" target="_blank">Open map <Compass size={14} /></a></div>
+        </div>
+        <div className="farm-weather-card">
+          <div className="farm-weather-card__top"><div><p className="section-kicker">Local weather gate</p><h3>{isLoadingWeather ? 'Checking conditions…' : weather ? `${weather.status[0].toUpperCase()}${weather.status.slice(1)} spray window` : 'Weather check needed'}</h3></div><button aria-label="Refresh JIT Campus weather" className="header-icon-button" disabled={isLoadingWeather} onClick={() => void refreshWeather()} type="button"><RefreshCw className={isLoadingWeather ? 'spin' : ''} size={17} /></button></div>
+          <div className="farm-weather-card__metrics">
+            <span><ThermometerSun size={17} /><small>Temperature</small><b>{weather?.temperature_c == null ? '—' : `${Math.round(weather.temperature_c)}°C`}</b></span>
+            <span><Wind size={17} /><small>Wind</small><b>{weather?.wind_mps == null ? '—' : `${weather.wind_mps.toFixed(1)} m/s`}</b></span>
+            <span><CloudRain size={17} /><small>Rain</small><b>{weather ? (weather.rain_expected ? 'Expected' : 'No flag') : 'Check'}</b></span>
+          </div>
+          <div className={`farm-weather-card__action farm-weather-card__action--${action.tone}`}><ShieldCheck size={20} /><div><strong>{action.title}</strong><p>{action.detail}</p></div></div>
+          <div className="farm-weather-card__footer"><small>{weather ? `${weather.provider} · checked ${updatedLabel}` : weatherError ? 'Weather source is not connected yet' : updatedLabel}</small><div><button onClick={() => onNavigate('/crop-analyzer')} type="button">Analyse a leaf</button><button onClick={() => onNavigate('/calendar')} type="button">Plan follow-up</button></div></div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export function Dashboard({ profile, onNavigate, onOpenAuth }: { profile?: SahayakProfile | null; onNavigate: Navigate; onOpenAuth: () => void }) {
   const isGuest = !profile
   return (
@@ -54,6 +152,7 @@ export function Dashboard({ profile, onNavigate, onOpenAuth }: { profile?: Sahay
         <div><span className="status-dot" /> Farm advisor ready<h2>Ask naturally. Receive crop guidance in your chosen language.</h2><p>Use voice for field observations, crop-care questions and treatment reminders.</p></div>
         <button className="secondary-action" onClick={() => onNavigate('/voice')} type="button">Talk to ShetiMitra <ChevronRight size={16} /></button>
       </section>
+      <FarmLocationPanel onNavigate={onNavigate} />
       <section className="section-block"><div className="section-heading"><div><p className="section-kicker">Farm tools</p><h2>Choose your next field action.</h2></div></div>
         <div className="service-grid">{SERVICES.map(({ icon: Icon, label, route, text }) => <button className="service-card" key={label} onClick={() => onNavigate(route)} type="button"><span><Icon size={21} /></span><h3>{label}</h3><p>{text}</p><ChevronRight size={17} /></button>)}</div>
       </section>

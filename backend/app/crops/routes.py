@@ -1,9 +1,10 @@
 """Weather safety checks for crop-treatment planning.
 
-The browser sends only an explicitly user-approved field coordinate. The
-OpenWeatherMap credential remains server-side and is never returned to the
-client. This route intentionally produces a conservative recommendation: a
-missing forecast is never reported as a safe spray window.
+The browser sends only an explicitly user-approved field coordinate. Any
+configured OpenWeatherMap credential remains server-side and is never returned
+to the client. When a private weather credential is not configured, the route
+uses a no-key forecast fallback. It intentionally produces a conservative
+recommendation: a missing forecast is never reported as a safe spray window.
 """
 
 from __future__ import annotations
@@ -84,6 +85,112 @@ def _as_number(value: object) -> float | None:
     return float(value) if isinstance(value, (int, float)) else None
 
 
+def _spray_recommendation(
+    *,
+    temperature_c: float | None,
+    wind_mps: float | None,
+    rain_expected: bool,
+    forecast_period: str,
+) -> tuple[str, str]:
+    """Return a conservative, explainable treatment-weather recommendation."""
+
+    if rain_expected:
+        return "avoid", f"Rain is expected {forecast_period}. Delay any foliar spray and re-check the forecast."
+    if wind_mps is not None and wind_mps > 4.5:
+        return "avoid", "Wind is too strong for a reliable spray. Delay to reduce drift and uneven coverage."
+    if temperature_c is not None and temperature_c >= 32:
+        return "caution", "High heat is forecast. Prefer a cooler early-morning window after confirming the product label allows it."
+    return (
+        "safe",
+        f"No rain, high-wind or high-heat flag appears {forecast_period}. Confirm field conditions immediately before spraying.",
+    )
+
+
+def _configured_openweather_api_key(settings: Settings) -> str | None:
+    """Return a configured OpenWeather key without exposing it to the client."""
+
+    if settings.openweather_api_key is None:
+        return None
+    api_key = settings.openweather_api_key.get_secret_value().strip()
+    return api_key or None
+
+
+async def _open_meteo_weather_check(latitude: float, longitude: float) -> SprayWeatherCheck:
+    """Build a safe weather gate from Open-Meteo when no private key is present."""
+
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            response = await client.get(
+                "https://api.open-meteo.com/v1/forecast",
+                params={
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "current": "temperature_2m,wind_speed_10m,rain",
+                    "hourly": "precipitation_probability,rain",
+                    "forecast_hours": 6,
+                    "timezone": "auto",
+                },
+            )
+            response.raise_for_status()
+            payload = response.json()
+    except httpx.HTTPError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The weather forecast is unavailable. Check local conditions before spraying.",
+        ) from error
+
+    if not isinstance(payload, dict):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The weather provider returned no usable forecast. Check local conditions before spraying.",
+        )
+
+    current = payload.get("current")
+    hourly = payload.get("hourly")
+    if not isinstance(current, dict) or not isinstance(hourly, dict):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The weather provider returned no usable forecast. Check local conditions before spraying.",
+        )
+
+    temperature_c = _as_number(current.get("temperature_2m"))
+    wind_value = _as_number(current.get("wind_speed_10m"))
+    current_units = payload.get("current_units")
+    wind_unit = current_units.get("wind_speed_10m") if isinstance(current_units, dict) else None
+    wind_mps = wind_value / 3.6 if wind_value is not None and wind_unit == "km/h" else wind_value
+
+    rain_probability = hourly.get("precipitation_probability")
+    hourly_rain = hourly.get("rain")
+    probabilities = rain_probability[:6] if isinstance(rain_probability, list) else []
+    rain_values = hourly_rain[:6] if isinstance(hourly_rain, list) else []
+    rain_expected = (
+        (_as_number(current.get("rain")) or 0) > 0
+        or any((_as_number(value) or 0) >= 40 for value in probabilities)
+        or any((_as_number(value) or 0) > 0 for value in rain_values)
+    )
+    forecast_time = current.get("time")
+    try:
+        forecast_at = datetime.fromisoformat(forecast_time) if isinstance(forecast_time, str) else None
+    except ValueError:
+        forecast_at = None
+    recommendation = _spray_recommendation(
+        temperature_c=temperature_c,
+        wind_mps=wind_mps,
+        rain_expected=rain_expected,
+        forecast_period="in the next six hours",
+    )
+
+    return SprayWeatherCheck(
+        status=recommendation[0],
+        summary=recommendation[1],
+        temperature_c=temperature_c,
+        wind_mps=wind_mps,
+        rain_expected=rain_expected,
+        forecast_at=forecast_at,
+        provider="Open-Meteo",
+    )
+
+
 def _multipart_text(value: object, *, field: str) -> str:
     if not isinstance(value, str):
         raise HTTPException(status_code=422, detail=f"{field} must be text.")
@@ -147,13 +254,9 @@ async def crop_weather_check(
 ) -> SprayWeatherCheck:
     """Assess the first forecast slot for a conservative spray recommendation."""
 
-    try:
-        api_key = settings.require_openweather_api_key()
-    except MissingConfigurationError as error:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Weather checks are not configured yet. Do not treat an unverified spray window as safe.",
-        ) from error
+    api_key = _configured_openweather_api_key(settings)
+    if api_key is None:
+        return await _open_meteo_weather_check(latitude, longitude)
 
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
@@ -186,14 +289,12 @@ async def crop_weather_check(
     timestamp = item.get("dt")
     forecast_at = datetime.fromtimestamp(timestamp, tz=UTC) if isinstance(timestamp, int) else None
 
-    if rain_expected:
-        result = ("avoid", "Rain is expected in the next forecast period. Delay any foliar spray and re-check the forecast.")
-    elif wind_mps is not None and wind_mps > 4.5:
-        result = ("avoid", "Wind is too strong for a reliable spray. Delay to reduce drift and uneven coverage.")
-    elif temperature_c is not None and temperature_c >= 32:
-        result = ("caution", "High heat is forecast. Prefer a cooler early-morning window after confirming the product label allows it.")
-    else:
-        result = ("safe", "No rain, high-wind or high-heat flag appears in the next forecast period. Confirm field conditions immediately before spraying.")
+    result = _spray_recommendation(
+        temperature_c=temperature_c,
+        wind_mps=wind_mps,
+        rain_expected=rain_expected,
+        forecast_period="in the next forecast period",
+    )
 
     return SprayWeatherCheck(
         status=result[0],

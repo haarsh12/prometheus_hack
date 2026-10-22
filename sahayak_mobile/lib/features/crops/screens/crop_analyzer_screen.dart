@@ -337,6 +337,7 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
+                  isExpanded: true,
                   value: provider.selectedCrop,
                   decoration: InputDecoration(
                     labelText: 'Crop',
@@ -344,13 +345,14 @@ class _CropAnalyzerScreenState extends State<CropAnalyzerScreen> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  items: CropProvider.supportedCrops.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                  items: CropProvider.supportedCrops.map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis))).toList(),
                   onChanged: (val) => provider.setSelectedCrop(val),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: DropdownButtonFormField<String>(
+                  isExpanded: true,
                   value: provider.selectedGrowthStage,
                   decoration: InputDecoration(
                     labelText: 'Stage',

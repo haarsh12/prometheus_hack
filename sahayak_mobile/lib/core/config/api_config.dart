@@ -24,13 +24,8 @@ class ApiConfig {
     if (_envUrl.isNotEmpty) {
       return _envUrl.replaceFirst(RegExp(r'/+$'), '');
     }
-    if (kIsWeb) {
-      return 'http://localhost:8000';
-    }
-    if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:8000';
-    }
-    return 'http://localhost:8000';
+    // Default to active local server IP for physical device & network testing
+    return 'http://10.50.10.137:8000';
   }
 
   /// Stable device declaration sent with every backend request

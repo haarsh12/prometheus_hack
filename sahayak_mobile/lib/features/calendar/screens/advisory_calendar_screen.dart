@@ -124,6 +124,7 @@ class _AdvisoryCalendarScreenState extends State<AdvisoryCalendarScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true,
                       value: chosenKind,
                       decoration: const InputDecoration(
                         labelText: 'Kind',
