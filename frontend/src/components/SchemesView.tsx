@@ -113,7 +113,7 @@ function SchemeCard({
   local: SchemeEntry | undefined
   onOpen: () => void
 }) {
-  const description = summary.description || local?.description || 'Verified information is available in Sahayak AI.'
+  const description = summary.description || local?.description || 'Verified information is available in ShetiMitra AI.'
   const beneficiaries =
     local?.beneficiary_tags ??
     summary.beneficiary_categories.map((b) => USER_TYPE_LABELS[b as UserType] ?? b.replace(/_/g, ' '))
@@ -313,7 +313,7 @@ function SchemeDetailModal({
             </div>
           ) : (
             <p className="scheme-modal__no-data">
-              Detailed fields are being verified from official sources. Ask Sahayak for the latest information.
+              Detailed fields are being verified from official sources. Ask ShetiMitra for the latest information.
             </p>
           )}
 
@@ -360,7 +360,7 @@ function SchemeDetailModal({
             Relevance is based on recorded source information. This is not an eligibility guarantee.
           </p>
           <button className="primary-action" onClick={onAsk} type="button">
-            Ask Sahayak about this
+            Ask ShetiMitra about this
           </button>
         </div>
       </div>
@@ -671,7 +671,7 @@ export function SchemesView({
               </button>
             )}
             <button className="secondary-action" type="button" onClick={onTalk}>
-              Ask Sahayak
+              Ask ShetiMitra
             </button>
           </div>
         </div>
