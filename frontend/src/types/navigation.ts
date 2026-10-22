@@ -1,8 +1,8 @@
 export const APP_ROUTES = [
   '/',
+  '/crop-analyzer',
+  '/calendar',
   '/voice',
-  '/knowledge-base',
-  '/admin',
   '/dashboard',
   '/documents',
   '/schemes',

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bell, ChevronDown, LogOut, Menu, MessageCircleMore, UserRound, X } from 'lucide-react'
+import { Bell, ChevronDown, Leaf, LogOut, Menu, UserRound, X } from 'lucide-react'
 
 import type { SahayakProfile } from '../types/api'
 import type { AppRoute } from '../types/navigation'
@@ -13,13 +13,11 @@ type SahayakHeaderProps = {
 }
 
 const NAVIGATION: Array<{ label: string; route: AppRoute; protected?: boolean }> = [
-  { label: 'Discover', route: '/' },
-  { label: 'Ask Sahayak', route: '/voice' },
-  { label: 'Services', route: '/dashboard' },
-  { label: 'Schemes', route: '/schemes' },
-  { label: 'Grievances', route: '/grievances', protected: true },
-  { label: 'Knowledge Base', route: '/knowledge-base' },
-  { label: 'Admin', route: '/admin' },
+  { label: 'Home', route: '/' },
+  { label: 'Crop Analyzer', route: '/crop-analyzer' },
+  { label: 'Advisory Calendar', route: '/calendar' },
+  { label: 'My Farm', route: '/dashboard' },
+  { label: 'Ask ShetiMitra', route: '/voice' },
 ]
 
 function nameFor(profile: SahayakProfile): string {
@@ -48,8 +46,8 @@ export function SahayakHeader({ activeRoute, onNavigate, onOpenAuth, onSignOut, 
     <>
       <header className="site-header">
         <button className="site-logo" onClick={() => handleNavigate('/')} type="button">
-          <span className="site-logo__mark" aria-hidden="true"><MessageCircleMore size={20} /></span>
-          <span>Sahayak AI</span>
+          <span className="site-logo__mark" aria-hidden="true"><Leaf size={20} /></span>
+          <span>ShetiMitra AI</span>
         </button>
         <nav className="site-navigation" aria-label="Main navigation">
           {NAVIGATION.map((item) => (
@@ -98,7 +96,7 @@ export function SahayakHeader({ activeRoute, onNavigate, onOpenAuth, onSignOut, 
         <div className="mobile-menu-overlay" onClick={() => setIsMobileMenuOpen(false)}>
           <div className="mobile-menu" onClick={(e) => e.stopPropagation()}>
             <div className="mobile-menu__header">
-              <span className="mobile-menu__title">Sahayak AI</span>
+              <span className="mobile-menu__title">ShetiMitra AI</span>
               <button 
                 aria-label="Close menu" 
                 className="mobile-menu__close" 

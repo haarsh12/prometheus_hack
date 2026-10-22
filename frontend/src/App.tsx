@@ -1,15 +1,15 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 
 import { AccessGate } from './components/AccessGate'
-import { AdminAccessPanel } from './components/AdminAccessPanel'
 import { AuthModal } from './components/AuthModal'
+import { AdvisoryCalendar } from './components/AdvisoryCalendar'
+import { CropAnalyzer } from './components/CropAnalyzer'
 import { Onboarding } from './components/Onboarding'
 import { Dashboard, DocumentsView, NotificationsView, ProfileView } from './components/PortalViews'
 import { SchemesView } from './components/SchemesView'
 import { GrievanceCenter } from './components/GrievanceCenter'
 import { SahayakHeader } from './components/SahayakHeader'
 import { SahayakLanding } from './components/SahayakLanding'
-import { KnowledgeBasePanel } from './components/KnowledgeBasePanel'
 import { useAuth } from './hooks/useAuth'
 import type { SahayakProfile } from './types/api'
 import { asAppRoute, type AppRoute } from './types/navigation'
@@ -58,11 +58,11 @@ function App() {
       case '/voice':
         content = <Suspense fallback={<main className="page-loader"><span className="loader-ring" /> Opening voice assistant…</main>}><VoiceExperience /></Suspense>
         break
-      case '/admin':
-        content = <AdminAccessPanel />
+      case '/crop-analyzer':
+        content = <CropAnalyzer onOpenCalendar={() => navigate('/calendar')} />
         break
-      case '/knowledge-base':
-        content = <KnowledgeBasePanel />
+      case '/calendar':
+        content = <AdvisoryCalendar />
         break
       case '/onboarding':
         content = auth.user ? <Onboarding auth={auth} onComplete={() => navigate('/dashboard')} profile={auth.user} /> : <AccessGate onOpenAuth={() => setIsAuthOpen(true)} onTalk={() => navigate('/voice')} title="Account setup" />
@@ -86,7 +86,7 @@ function App() {
         content = auth.user ? <ProfileView auth={auth} profile={auth.user} /> : <AccessGate onOpenAuth={() => setIsAuthOpen(true)} onTalk={() => navigate('/voice')} title="Profile" />
         break
       default:
-        content = <SahayakLanding onOpenAuth={() => setIsAuthOpen(true)} onTalk={() => navigate('/voice')} onViewServices={() => navigate('/dashboard')} />
+        content = <SahayakLanding onAnalyze={() => navigate('/crop-analyzer')} onOpenAuth={() => setIsAuthOpen(true)} onViewServices={() => navigate('/dashboard')} />
     }
   }
 
@@ -95,7 +95,7 @@ function App() {
       <div className={`app-shell ${route === '/voice' ? 'app-shell--voice' : ''}`}>
         <SahayakHeader activeRoute={route} onNavigate={navigate} onOpenAuth={() => setIsAuthOpen(true)} onSignOut={logout} user={auth.user} />
         {content}
-        {route !== '/voice' && <footer className="site-footer"><span>© Sahayak AI</span><span>Educational guidance, not legal or financial advice.</span><span>Available in 10 Indian languages.</span></footer>}
+        {route !== '/voice' && <footer className="site-footer"><span>© ShetiMitra AI</span><span>Crop-health guidance supports, not replaces, local expert diagnosis.</span><span>Available in 10 Indian languages.</span></footer>}
       </div>
       <AuthModal auth={auth} isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onVerified={onVerified} />
     </>

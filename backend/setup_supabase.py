@@ -25,7 +25,9 @@ async def setup():
     # Disable prepared statements for pgbouncer transaction pooler
     engine = create_async_engine(
         settings.async_database_url,
-        connect_args={"prepared_statement_cache_size": 0}
+        connect_args={"prepared_statement_cache_size": 0},
+        pool_timeout=30,
+        pool_pre_ping=True
     )
     
     try:
