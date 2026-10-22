@@ -1,10 +1,26 @@
-# Environment variables - NEVER commit these!
+# ==================== ENVIRONMENT VARIABLES ====================
+# CRITICAL: Never commit these - they contain secrets!
 .env
 .env.local
 .env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.kiosk
 
-# Logs
-logs
+# ==================== DEPENDENCIES ====================
+node_modules/
+.pnp
+.pnp.js
+
+# ==================== BUILD OUTPUTS ====================
+dist/
+dist-ssr/
+build/
+*.local
+
+# ==================== LOGS ====================
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -12,18 +28,87 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# ==================== TESTING ====================
+coverage/
+.nyc_output
+*.lcov
 
-# Editor directories and files
+# ==================== CACHE ====================
+.cache/
+.vite/
+.turbo/
+.next/
+.nuxt/
+.output/
+.temp/
+*.tsbuildinfo
+
+# ==================== EDITOR & IDE ====================
+# VSCode
 .vscode/*
 !.vscode/extensions.json
-.idea
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+*.code-workspace
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+
+# Sublime
+*.sublime-project
+*.sublime-workspace
+
+# ==================== OS SPECIFIC ====================
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ==================== MISC ====================
+*.swp
+*.swo
+*.swn
+*.bak
+*.tmp
+*.temp
+
+# Visual Studio
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# ==================== VITE SPECIFIC ====================
+# Vite build info
+vite.config.*.timestamp-*
+
+# ==================== TYPESCRIPT ====================
+*.tsbuildinfo
+
+# ==================== PACKAGE MANAGER LOCKS ====================
+# Keep package-lock.json but ignore other lock files if using different managers
+# yarn.lock
+# pnpm-lock.yaml
+
+# ==================== LOCAL CONFIGURATION ====================
+.local
+*.local
