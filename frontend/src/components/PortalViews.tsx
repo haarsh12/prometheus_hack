@@ -112,7 +112,7 @@ function FarmLocationPanel({ onNavigate }: { onNavigate: Navigate }) {
         </div>
         <span className="farm-location-panel__status"><MapPinned size={15} /> Location set</span>
       </div>
-      <div className="farm-location-panel__grid">
+      <div className="farm-location-panel__map">
         <div className="farm-map-card">
           <iframe
             aria-label="Map centred on JIT Campus, Lonara, Nagpur"
@@ -123,6 +123,19 @@ function FarmLocationPanel({ onNavigate }: { onNavigate: Navigate }) {
           />
           <div className="farm-map-card__caption"><span><Navigation size={16} /> <b>{JIT_CAMPUS.label}</b><small>{JIT_CAMPUS.address}</small></span><a href={JIT_CAMPUS.mapUrl} rel="noreferrer" target="_blank">Open map <Compass size={14} /></a></div>
         </div>
+      </div>
+      <div className="farm-location-panel__content">
+        <article className="farm-location-details">
+          <p className="section-kicker">Field reference</p>
+          <h3>Campus location</h3>
+          <dl>
+            <div><dt>Place</dt><dd>JIT Campus, Lonara</dd></div>
+            <div><dt>District</dt><dd>Nagpur, Maharashtra</dd></div>
+            <div><dt>Coordinates</dt><dd>21.2475° N, 79.0508° E</dd></div>
+            <div><dt>Use for</dt><dd>Weather, scouting &amp; reminders</dd></div>
+          </dl>
+          <p className="farm-location-details__note"><Navigation size={16} /> This location is used only as the field reference for the map and local advisory checks.</p>
+        </article>
         <div className="farm-weather-card">
           <div className="farm-weather-card__top"><div><p className="section-kicker">Local weather gate</p><h3>{isLoadingWeather ? 'Checking conditions…' : weather ? `${weather.status[0].toUpperCase()}${weather.status.slice(1)} spray window` : 'Weather check needed'}</h3></div><button aria-label="Refresh JIT Campus weather" className="header-icon-button" disabled={isLoadingWeather} onClick={() => void refreshWeather()} type="button"><RefreshCw className={isLoadingWeather ? 'spin' : ''} size={17} /></button></div>
           <div className="farm-weather-card__metrics">
