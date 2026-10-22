@@ -1,6 +1,6 @@
 @echo off
 echo ===================================
-echo Starting Sahayak AI Backend
+echo Starting ShetiMitra AI Backend
 echo ===================================
 echo.
 

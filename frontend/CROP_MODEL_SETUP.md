@@ -16,7 +16,7 @@ model configuration outside the Vite environment:
 GOOGLE_APPLICATION_CREDENTIALS=C:\secure\vertex-service-account.json
 GOOGLE_CLOUD_PROJECT=your-google-cloud-project
 GOOGLE_CLOUD_LOCATION=global
-GEMINI_MODEL=your-enabled-vision-model
+CROP_VISION_MODEL=your-enabled-vision-model
 OPENWEATHER_API_KEY=optional-weather-key
 ```
 
@@ -36,6 +36,16 @@ the suggested plan, then explicitly choose whether to add it to the calendar.
 `OPENWEATHER_API_KEY` is optional for diagnosis but required before the app can
 mark a spray window as safer. A missing forecast is always shown as unverified,
 never safe.
+
+If this is the first deployment with CropVision or Advisory Calendar enabled,
+apply the included database migration once from `backend`:
+
+```powershell
+.\.venv\Scripts\python.exe apply_crop_health_migration.py
+```
+
+It creates the diagnosis-history and calendar tables without modifying existing
+accounts or calendar events.
 
 ## Optional local ONNX Runtime Web model
 

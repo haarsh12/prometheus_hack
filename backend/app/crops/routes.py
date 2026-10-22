@@ -23,6 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 from PIL import Image, UnidentifiedImageError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.datastructures import UploadFile
 
 from app.auth.models import Account
@@ -273,20 +274,28 @@ async def create_crop_diagnosis(
     captured_at = datetime.now(UTC)
     saved = account is not None
     if account is not None:
-        session.add(
-            CropDiagnosisRecord(
-                id=diagnosis_id,
-                account_id=account.id,
-                crop=result.identified_crop,
-                growth_stage=result.identified_growth_stage,
-                label=result.label,
-                category=result.category,
-                confidence=result.confidence,
-                severity=result.severity,
-                result=result.model_dump(mode="json"),
+        try:
+            session.add(
+                CropDiagnosisRecord(
+                    id=diagnosis_id,
+                    account_id=account.id,
+                    crop=result.identified_crop,
+                    growth_stage=result.identified_growth_stage,
+                    label=result.label,
+                    category=result.category,
+                    confidence=result.confidence,
+                    severity=result.severity,
+                    result=result.model_dump(mode="json"),
+                )
             )
-        )
-        await session.commit()
+            await session.commit()
+        except SQLAlchemyError:
+            # A history-table migration must never prevent the farmer from
+            # receiving the diagnosis that was already produced. The result
+            # remains in the browser and can be scheduled locally.
+            await session.rollback()
+            saved = False
+            logger.exception("crop_diagnosis_history_save_failed")
     return CropDiagnosisResponse(
         id=diagnosis_id,
         crop=result.identified_crop,
@@ -310,7 +319,14 @@ async def get_farm_calendar(
         raise HTTPException(status_code=422, detail="Calendar end date must be after its start date.")
     if (end - start).days > 370:
         raise HTTPException(status_code=422, detail="Choose a calendar range of one year or less.")
-    events = await list_calendar_events(session, account.id, start=start, end=end)
+    try:
+        events = await list_calendar_events(session, account.id, start=start, end=end)
+    except SQLAlchemyError as error:
+        logger.exception("farm_calendar_read_failed")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Farm calendar storage needs an update. Your device calendar remains available; please refresh shortly.",
+        ) from error
     return [serialize_calendar_event(event) for event in events]
 
 
@@ -333,7 +349,15 @@ async def create_farm_calendar_event(
         crop=payload.crop.strip() if payload.crop else None,
         origin=payload.origin,
     )
-    session.add(event)
-    await session.commit()
-    await session.refresh(event)
+    try:
+        session.add(event)
+        await session.commit()
+        await session.refresh(event)
+    except SQLAlchemyError as error:
+        await session.rollback()
+        logger.exception("farm_calendar_write_failed")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Farm calendar storage needs an update. Please try again shortly.",
+        ) from error
     return serialize_calendar_event(event)

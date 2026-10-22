@@ -251,23 +251,6 @@ leaf photo only as visual evidence. Crop context: {crop or "auto-detect from ima
 Growth-stage context: {growth_stage or "auto-detect from image"}.
 Farm location context: {location}.
 
-Return exactly one JSON object, no markdown or extra keys, matching:
-{{
-  "identified_crop": "crop visible in image or Crop not confidently identified",
-  "identified_growth_stage": "visible stage or Stage not confidently identified",
-  "label": "short likely visible pattern",
-  "category": "healthy|fungal|pest|nutrient|water|unknown",
-  "confidence": 0.0,
-  "severity": "Low|Moderate|High",
-  "summary": "plain-language visual screening, including uncertainty",
-  "observations": ["up to six visible facts"],
-  "boxes": [{{"label":"visible symptom", "x":0, "y":0, "width":0, "height":0}}],
-  "affected_leaf_area_percent": 0.0,
-  "treatment": [{{"title":"action", "detail":"safe practical detail", "timing":"when", "kind":"observe|bio|spray|field"}}],
-  "followup_days": 3,
-  "caution": "one essential safety note"
-}}
-
 Rules:
 - `confidence` is your visual screening confidence only. Use a low value and
   `unknown` when blur, crop mismatch, framing, or lighting prevents a reliable
@@ -278,11 +261,11 @@ Rules:
   not proof of disease.
 - `affected_leaf_area_percent` is a visual estimate; use null if it cannot be
   reasonably estimated from this single photo.
-- Give 2–5 low-risk, actionable steps. Prefer scouting, sanitation, irrigation
-  checks and biological/cultural controls. Do not invent brand names, chemical
-  concentrations, legal approvals, or exact pesticide dosages. If spraying may
-  be considered, say to follow the locally registered product label and avoid
-  rain, strong wind and high heat.
+- Give 2–4 short, low-risk, actionable steps. Prefer scouting, sanitation,
+  irrigation checks and biological/cultural controls. Do not invent brand
+  names, chemical concentrations, legal approvals, or exact pesticide dosages.
+  If spraying may be considered, say to follow the locally registered product
+  label and avoid rain, strong wind and high heat.
 - Include a follow-up in 1–21 days and a clear caution for severe, fast-spreading
   or uncertain symptoms.
 """.strip()
@@ -426,6 +409,30 @@ def _normalized_crop_payload(payload: object) -> dict[str, Any]:
     }
 
 
+def _parse_crop_json(raw: str) -> object:
+    """Accept a JSON object even when a vision model adds a code fence.
+
+    The prompt requests plain JSON, but a transport-compatible model may still
+    wrap it in a Markdown JSON fence. Removing only that wrapper preserves the
+    response content and avoids discarding an otherwise valid diagnosis.
+    """
+
+    candidate = raw.strip()
+    if candidate.startswith("```"):
+        lines = candidate.splitlines()
+        if lines and lines[0].lstrip().startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip().startswith("```"):
+            lines = lines[:-1]
+        candidate = "\n".join(lines).strip()
+    if not candidate.startswith("{"):
+        start = candidate.find("{")
+        end = candidate.rfind("}")
+        if start >= 0 and end > start:
+            candidate = candidate[start : end + 1]
+    return json.loads(candidate)
+
+
 def generate_crop_diagnosis(
     settings: Settings,
     *,
@@ -453,15 +460,20 @@ def generate_crop_diagnosis(
         ],
         config=GenerateContentConfig(
             temperature=0.1,
-            max_output_tokens=1300,
+            # A response schema keeps a result machine-readable without
+            # duplicating a large JSON example in the prompt. Extra headroom
+            # avoids truncating a valid treatment plan midway through a string.
+            max_output_tokens=2400,
             response_mime_type="application/json",
+            response_schema=CropDiagnosisResult,
         ),
     )
     raw = (response.text or "").strip()
-    if not raw:
+    parsed = response.parsed
+    if not raw and not isinstance(parsed, dict):
         raise CropDiagnosisError("The vision service returned no diagnosis.")
     try:
-        payload = json.loads(raw)
+        payload = parsed if isinstance(parsed, dict) else _parse_crop_json(raw)
         result = CropDiagnosisResult.model_validate(_normalized_crop_payload(payload))
     except (json.JSONDecodeError, ValueError, TypeError) as error:
         raise CropDiagnosisError("The vision service returned an invalid diagnosis.") from error

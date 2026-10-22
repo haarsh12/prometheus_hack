@@ -10,6 +10,7 @@ import { SchemesView } from './components/SchemesView'
 import { GrievanceCenter } from './components/GrievanceCenter'
 import { SahayakHeader } from './components/SahayakHeader'
 import { SahayakLanding } from './components/SahayakLanding'
+import { WebLanguageProvider } from './components/WebLanguageSelector'
 import { useAuth } from './hooks/useAuth'
 import type { SahayakProfile } from './types/api'
 import { asAppRoute, type AppRoute } from './types/navigation'
@@ -18,7 +19,7 @@ import './App.css'
 const PROTECTED_ROUTES: AppRoute[] = ['/documents', '/grievances', '/notifications', '/profile', '/onboarding']
 const VoiceExperience = lazy(() => import('./components/VoiceExperience'))
 
-function App() {
+function AppContent() {
   const [route, setRoute] = useState<AppRoute>(() => asAppRoute(window.location.pathname))
   const [isAuthOpen, setIsAuthOpen] = useState(false)
   const auth = useAuth()
@@ -102,4 +103,6 @@ function App() {
   )
 }
 
-export default App
+export default function App() {
+  return <WebLanguageProvider><AppContent /></WebLanguageProvider>
+}

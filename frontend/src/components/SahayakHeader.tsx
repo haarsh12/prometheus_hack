@@ -3,6 +3,7 @@ import { Bell, ChevronDown, Leaf, LogOut, Menu, UserRound, X } from 'lucide-reac
 
 import type { SahayakProfile } from '../types/api'
 import type { AppRoute } from '../types/navigation'
+import { WebsiteLanguageSelector } from './WebLanguageSelector'
 
 type SahayakHeaderProps = {
   activeRoute: AppRoute
@@ -15,10 +16,10 @@ type SahayakHeaderProps = {
 const NAVIGATION: Array<{ label: string; route: AppRoute; protected?: boolean }> = [
   { label: 'Home', route: '/' },
   { label: 'Crop Analyzer', route: '/crop-analyzer' },
+  { label: 'Ask ShetiMitra', route: '/voice' },
+  { label: 'Schemes', route: '/schemes' },
   { label: 'Advisory Calendar', route: '/calendar' },
   { label: 'My Farm', route: '/dashboard' },
-  { label: 'Schemes', route: '/schemes' },
-  { label: 'Ask ShetiMitra', route: '/voice' },
 ]
 
 function nameFor(profile: SahayakProfile): string {
@@ -63,6 +64,7 @@ export function SahayakHeader({ activeRoute, onNavigate, onOpenAuth, onSignOut, 
           ))}
         </nav>
         <div className="site-header__account">
+          <WebsiteLanguageSelector />
           {user ? (
             <>
               <button aria-label="Open notifications" className="header-icon-button" onClick={() => handleNavigate('/notifications')} type="button"><Bell size={18} /></button>
