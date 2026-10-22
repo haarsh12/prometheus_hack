@@ -53,11 +53,11 @@ export function AdvisoryCalendar() {
     day.setDate(anchor.getDate() + index)
     return day
   }), [anchor])
-  const allEntries = [...defaultEntries(), ...entries]
+  const allEntries = useMemo(() => [...defaultEntries(), ...entries], [entries])
   const entriesByDate = useMemo(() => new Map(days.map((day) => {
     const key = isoDate(day)
     return [key, allEntries.filter((entry) => entry.date === key)]
-  })), [days, entries])
+  })), [days, allEntries])
   const upcoming = [...allEntries].filter((entry) => entry.date >= isoDate(new Date())).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 6)
 
   return (
