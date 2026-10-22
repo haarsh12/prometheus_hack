@@ -22,7 +22,11 @@ async def setup():
     
     print(f"Connecting to: {settings.async_database_url.split('@')[1].split('/')[0]}...")
     
-    engine = create_async_engine(settings.async_database_url)
+    # Disable prepared statements for pgbouncer transaction pooler
+    engine = create_async_engine(
+        settings.async_database_url,
+        connect_args={"prepared_statement_cache_size": 0}
+    )
     
     try:
         async with engine.begin() as conn:
