@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import math
 from pathlib import Path
+from typing import Any
 
 from google.auth.credentials import Credentials
 from google.genai import Client
@@ -235,7 +237,7 @@ def build_crop_diagnosis_prompt(
     state: str | None = None,
     district: str | None = None,
 ) -> str:
-    """Request a bounded, machine-readable visual screening from Gemini.
+    """Request a bounded, machine-readable CropVision screening.
 
     The model's reported confidence is its own visual-assessment confidence,
     not a calibrated clinical probability.  The UI communicates that boundary
@@ -286,6 +288,144 @@ Rules:
 """.strip()
 
 
+def _string(value: object, *, fallback: str, maximum: int) -> str:
+    """Keep model-supplied text bounded without turning it into a diagnosis."""
+
+    if not isinstance(value, str):
+        return fallback
+    clean = value.strip()
+    return clean[:maximum] if clean else fallback
+
+
+def _number(value: object, *, default: float, minimum: float, maximum: float) -> float:
+    if isinstance(value, bool):
+        return default
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return default
+    if not math.isfinite(parsed):
+        return default
+    return min(max(parsed, minimum), maximum)
+
+
+def _normalized_crop_payload(payload: object) -> dict[str, Any]:
+    """Normalize harmless model formatting variation before contract validation.
+
+    This never adds a disease claim. It only preserves usable model evidence,
+    drops malformed focus regions, and falls back to an explicitly uncertain,
+    safety-first screen when a field is omitted.
+    """
+
+    if not isinstance(payload, dict):
+        raise CropDiagnosisError("The vision service returned a non-object diagnosis.")
+
+    category_value = _string(payload.get("category"), fallback="unknown", maximum=32).lower()
+    category = {
+        "healthy": "healthy",
+        "normal": "healthy",
+        "fungal": "fungal",
+        "fungus": "fungal",
+        "disease": "fungal",
+        "pest": "pest",
+        "insect": "pest",
+        "insects": "pest",
+        "nutrient": "nutrient",
+        "deficiency": "nutrient",
+        "water": "water",
+        "drought": "water",
+    }.get(category_value, "unknown")
+    severity_value = _string(payload.get("severity"), fallback="Low", maximum=32).lower()
+    severity = "High" if severity_value in {"high", "severe"} else "Moderate" if severity_value in {"moderate", "medium"} else "Low"
+
+    confidence = _number(payload.get("confidence"), default=0.0, minimum=0.0, maximum=100.0)
+    if confidence > 1:
+        confidence /= 100
+
+    observations_source = payload.get("observations")
+    if isinstance(observations_source, str):
+        observations_source = [observations_source]
+    observations = (
+        [_string(item, fallback="", maximum=300) for item in observations_source if isinstance(item, str) and item.strip()][:6]
+        if isinstance(observations_source, list)
+        else []
+    )
+
+    boxes: list[dict[str, Any]] = []
+    raw_boxes = payload.get("boxes")
+    if isinstance(raw_boxes, list):
+        for raw_box in raw_boxes[:8]:
+            if not isinstance(raw_box, dict):
+                continue
+            x = round(_number(raw_box.get("x"), default=-1, minimum=-1, maximum=1000))
+            y = round(_number(raw_box.get("y"), default=-1, minimum=-1, maximum=1000))
+            width = round(_number(raw_box.get("width"), default=0, minimum=0, maximum=1000))
+            height = round(_number(raw_box.get("height"), default=0, minimum=0, maximum=1000))
+            if x < 0 or y < 0 or width < 1 or height < 1:
+                continue
+            width = min(width, 1000 - x)
+            height = min(height, 1000 - y)
+            if width < 1 or height < 1:
+                continue
+            boxes.append({
+                "label": _string(raw_box.get("label"), fallback="Visible symptom", maximum=80),
+                "x": x,
+                "y": y,
+                "width": width,
+                "height": height,
+            })
+
+    treatments: list[dict[str, str]] = []
+    raw_treatment = payload.get("treatment")
+    if isinstance(raw_treatment, dict):
+        raw_treatment = [raw_treatment]
+    if isinstance(raw_treatment, list):
+        for raw_step in raw_treatment[:5]:
+            if not isinstance(raw_step, dict):
+                continue
+            title = _string(raw_step.get("title"), fallback="", maximum=120)
+            detail = _string(raw_step.get("detail"), fallback="", maximum=600)
+            timing = _string(raw_step.get("timing"), fallback="", maximum=100)
+            if not title or not detail or not timing:
+                continue
+            kind = _string(raw_step.get("kind"), fallback="observe", maximum=24).lower()
+            if kind not in {"observe", "bio", "spray", "field"}:
+                kind = "field" if kind in {"cultural", "fieldwork"} else "observe"
+            treatments.append({"title": title, "detail": detail, "timing": timing, "kind": kind})
+    if not treatments:
+        treatments = [{
+            "title": "Verify the pattern in the field",
+            "detail": "Check several leaves and plants in daylight before deciding on any treatment. Seek local agronomy support if symptoms spread quickly.",
+            "timing": "Today",
+            "kind": "observe",
+        }]
+
+    affected = payload.get("affected_leaf_area_percent")
+    affected_leaf_area_percent: float | None
+    if affected is None:
+        affected_leaf_area_percent = None
+    else:
+        candidate = _number(affected, default=-1, minimum=-1, maximum=100)
+        affected_leaf_area_percent = candidate if candidate >= 0 else None
+
+    followup_days = round(_number(payload.get("followup_days"), default=3, minimum=1, maximum=21))
+    return {
+        "identified_crop": _string(payload.get("identified_crop"), fallback="Crop not confidently identified", maximum=80),
+        "identified_growth_stage": _string(payload.get("identified_growth_stage"), fallback="Stage not confidently identified", maximum=80),
+        "label": _string(payload.get("label"), fallback="Visual screening incomplete", maximum=160),
+        "category": category,
+        "confidence": confidence,
+        "severity": severity,
+        "summary": _string(payload.get("summary"), fallback="The photo did not provide enough reliable detail for a disease diagnosis.", maximum=900),
+        "observations": observations,
+        "boxes": boxes if category not in {"healthy", "unknown"} else [],
+        "affected_leaf_area_percent": affected_leaf_area_percent,
+        "treatment": treatments,
+        "followup_days": followup_days,
+        "caution": _string(payload.get("caution"), fallback="Do not spray based only on one uncertain photo; check nearby plants and local conditions first.", maximum=500),
+    }
+
+
 def generate_crop_diagnosis(
     settings: Settings,
     *,
@@ -296,7 +436,7 @@ def generate_crop_diagnosis(
     state: str | None = None,
     district: str | None = None,
 ):
-    """Send the original uploaded pixels to Gemini and validate its JSON result."""
+    """Send original uploaded pixels to CropVision and validate its JSON result."""
 
     # Kept as a local import so the general chat module remains lightweight in
     # isolation and the crop contract is the sole source of response limits.
@@ -304,7 +444,7 @@ def generate_crop_diagnosis(
 
     client = create_gemini_client(settings)
     response = client.models.generate_content(
-        model=settings.gemini_model,
+        model=settings.crop_vision_runtime_model,
         contents=[
             build_crop_diagnosis_prompt(
                 crop=crop, growth_stage=growth_stage, state=state, district=district
@@ -322,7 +462,7 @@ def generate_crop_diagnosis(
         raise CropDiagnosisError("The vision service returned no diagnosis.")
     try:
         payload = json.loads(raw)
-        result = CropDiagnosisResult.model_validate(payload)
+        result = CropDiagnosisResult.model_validate(_normalized_crop_payload(payload))
     except (json.JSONDecodeError, ValueError, TypeError) as error:
         raise CropDiagnosisError("The vision service returned an invalid diagnosis.") from error
     # Reject regions that spill beyond the normalized image instead of silently

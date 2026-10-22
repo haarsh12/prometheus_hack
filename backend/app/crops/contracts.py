@@ -26,8 +26,8 @@ class TreatmentStep(BaseModel):
 
 
 class CropDiagnosisResult(BaseModel):
-    identified_crop: str = Field(min_length=1, max_length=80)
-    identified_growth_stage: str = Field(min_length=1, max_length=80)
+    identified_crop: str = Field(default="Crop not confidently identified", min_length=1, max_length=80)
+    identified_growth_stage: str = Field(default="Stage not confidently identified", min_length=1, max_length=80)
     label: str = Field(min_length=1, max_length=160)
     category: Literal["healthy", "fungal", "pest", "nutrient", "water", "unknown"]
     confidence: float = Field(ge=0, le=1)

@@ -87,13 +87,24 @@ class Settings(BaseSettings):
     google_stt_location: str = "global"
     google_keyterms: str = "ShetiMitra,शेतीमित्र,नमस्ते,धन्यवाद,फसल,पिक"
 
-    # Gemini runs through Vertex AI using GOOGLE_APPLICATION_CREDENTIALS. The
-    # project can be inferred from a service-account key, but specifying it is
-    # useful for workload identity and other non-key credential sources.
+    # The server-side language and vision services run through Vertex AI using
+    # GOOGLE_APPLICATION_CREDENTIALS. The project can be inferred from a
+    # service-account key, but specifying it is useful for workload identity
+    # and other non-key credential sources.
     google_cloud_project: str = ""
     google_cloud_location: str = "global"
     gemini_model: str = "gemini-3.5-flash"
+    # The crop screen can use a separately selected, vision-capable model.
+    # Leaving this blank preserves existing deployments that use GEMINI_MODEL
+    # for both the assistant and CropVision.
+    crop_vision_model: str = ""
     gemini_temperature: float = Field(default=0.35, ge=0, le=2)
+
+    @property
+    def crop_vision_runtime_model(self) -> str:
+        """Return the deployment's explicitly configured crop-vision model."""
+
+        return self.crop_vision_model.strip() or self.gemini_model
 
     # Crop-treatment weather checks are proxied by FastAPI so this API key is
     # never exposed in the browser bundle.
