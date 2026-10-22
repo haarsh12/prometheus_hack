@@ -90,6 +90,21 @@ export function getHealth(): Promise<HealthResponse> {
   return request<HealthResponse>('/api/health')
 }
 
+export type CropWeatherCheck = {
+  status: 'safe' | 'caution' | 'avoid'
+  summary: string
+  temperature_c: number | null
+  wind_mps: number | null
+  rain_expected: boolean
+  forecast_at: string | null
+  provider: string
+}
+
+export function getCropWeather(latitude: number, longitude: number): Promise<CropWeatherCheck> {
+  const query = new URLSearchParams({ latitude: String(latitude), longitude: String(longitude) })
+  return request<CropWeatherCheck>(`/api/crop-weather?${query.toString()}`, { method: 'GET' })
+}
+
 export function getSchemes(params: {
   query?: string
   category?: string

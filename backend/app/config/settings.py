@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     livekit_url: str = ""
     livekit_api_key: SecretStr | None = None
     livekit_api_secret: SecretStr | None = None
-    agent_name: str = "sahayak-ai"
+    agent_name: str = "shetimitra-ai"
 
     # Exotel sends inbound PSTN calls directly to LiveKit's SIP FQDN. These
     # values identify the phone number and reusable LiveKit resources created
@@ -67,7 +67,7 @@ class Settings(BaseSettings):
     # WebAuthn keeps biometric data on the member's device. Production must
     # name its real HTTPS origin and RP ID; local development can use one of
     # the existing explicit Vite origins.
-    web_authn_rp_name: str = "Sahayak AI"
+    web_authn_rp_name: str = "ShetiMitra AI"
     web_authn_rp_id: str = ""
     web_authn_origins: str = ""
 
@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     # uses the explicit, provider-compatible profile for each language.
     google_stt_model: str = "latest_long"
     google_stt_location: str = "global"
-    google_keyterms: str = "Sahayak,सहायक,नमस्ते,धन्यवाद,सहकारी,पीएसीएस"
+    google_keyterms: str = "ShetiMitra,शेतीमित्र,नमस्ते,धन्यवाद,फसल,पिक"
 
     # Gemini runs through Vertex AI using GOOGLE_APPLICATION_CREDENTIALS. The
     # project can be inferred from a service-account key, but specifying it is
@@ -94,6 +94,10 @@ class Settings(BaseSettings):
     google_cloud_location: str = "global"
     gemini_model: str = "gemini-3.5-flash"
     gemini_temperature: float = Field(default=0.35, ge=0, le=2)
+
+    # Crop-treatment weather checks are proxied by FastAPI so this API key is
+    # never exposed in the browser bundle.
+    openweather_api_key: SecretStr | None = None
 
     # Knowledge-engine configuration. Qdrant is an internal service only: its
     # endpoint and optional API key are never returned by any API route and
@@ -290,6 +294,11 @@ class Settings(BaseSettings):
     def require_agent_providers(self) -> None:
         self.require_token_issuer()
         self._require("GOOGLE_APPLICATION_CREDENTIALS", self.google_application_credentials)
+
+    def require_openweather_api_key(self) -> str:
+        self._require("OPENWEATHER_API_KEY", self.openweather_api_key)
+        assert self.openweather_api_key is not None
+        return self.openweather_api_key.get_secret_value().strip()
 
     def require_exotel_livekit_configuration(self) -> None:
         """Require only values necessary to create LiveKit SIP resources."""

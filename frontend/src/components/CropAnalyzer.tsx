@@ -11,6 +11,7 @@ import {
   ImagePlus,
   Leaf,
   LoaderCircle,
+  MapPin,
   ScanLine,
   ShieldCheck,
   Sprout,
@@ -30,6 +31,7 @@ import {
   type GrowthStage,
 } from '../lib/crop-diagnosis'
 import { saveDiagnosis, scheduleDiagnosisPlan } from '../lib/crop-ledger'
+import { getCropWeather, type CropWeatherCheck } from '../lib/api'
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
@@ -53,6 +55,9 @@ export function CropAnalyzer({ onOpenCalendar }: { onOpenCalendar: () => void })
   const [error, setError] = useState<string | null>(null)
   const [diagnosis, setDiagnosis] = useState<CropDiagnosis | null>(null)
   const [isPlanSaved, setIsPlanSaved] = useState(false)
+  const [weather, setWeather] = useState<CropWeatherCheck | null>(null)
+  const [weatherNotice, setWeatherNotice] = useState<string | null>(null)
+  const [isWeatherLoading, setIsWeatherLoading] = useState(false)
 
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }, [previewUrl])
 
@@ -116,6 +121,32 @@ export function CropAnalyzer({ onOpenCalendar }: { onOpenCalendar: () => void })
     setIsPlanSaved(true)
   }
 
+  function checkWeatherForField(): void {
+    if (!navigator.geolocation) {
+      setWeatherNotice('This browser cannot share a field location. Check local weather before spraying.')
+      return
+    }
+    setIsWeatherLoading(true)
+    setWeatherNotice(null)
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const result = await getCropWeather(position.coords.latitude, position.coords.longitude)
+          setWeather(result)
+        } catch (caughtError) {
+          setWeatherNotice(caughtError instanceof Error ? caughtError.message : 'The forecast could not be checked. Do not assume a safe spray window.')
+        } finally {
+          setIsWeatherLoading(false)
+        }
+      },
+      () => {
+        setIsWeatherLoading(false)
+        setWeatherNotice('Field location was not shared. Check local weather before spraying.')
+      },
+      { enableHighAccuracy: false, maximumAge: 15 * 60 * 1000, timeout: 10_000 },
+    )
+  }
+
   return (
     <main className="crop-analyzer-page">
       <section className="crop-analyzer-hero">
@@ -124,10 +155,11 @@ export function CropAnalyzer({ onOpenCalendar }: { onOpenCalendar: () => void })
           <h1>See the stress. Act at the right time.</h1>
           <p>Capture one clear leaf photo to screen for disease, pest injury, nutrient stress and water stress. ShetiMitra keeps the diagnosis, next steps and follow-up together.</p>
         </div>
-        <aside className="crop-analyzer-hero__weather">
+        <aside className={`crop-analyzer-hero__weather ${weather ? `crop-analyzer-hero__weather--${weather.status}` : ''}`}>
           <CloudSun size={24} aria-hidden="true" />
-          <div><span>Spray-window check</span><strong>Connect weather to activate</strong></div>
-          <small>Rain, wind and heat checks are applied before a plan is scheduled.</small>
+          <div><span>Spray-window check</span><strong>{weather ? `${weather.status[0].toUpperCase()}${weather.status.slice(1)} · ${weather.provider}` : 'Connect weather to activate'}</strong></div>
+          <small>{weather ? weather.summary : weatherNotice ?? 'Rain, wind and heat checks are applied before a plan is scheduled.'}</small>
+          <button disabled={isWeatherLoading} onClick={checkWeatherForField} type="button"><MapPin size={14} /> {isWeatherLoading ? 'Checking your field…' : weather ? 'Refresh field weather' : 'Use my field location'}</button>
         </aside>
       </section>
 
@@ -165,13 +197,13 @@ export function CropAnalyzer({ onOpenCalendar }: { onOpenCalendar: () => void })
         </div>
       </section>
 
-      {diagnosis && <DiagnosisReport diagnosis={diagnosis} isPlanSaved={isPlanSaved} onAddPlan={addPlanToCalendar} onOpenCalendar={onOpenCalendar} />}
+      {diagnosis && <DiagnosisReport diagnosis={diagnosis} isPlanSaved={isPlanSaved} onAddPlan={addPlanToCalendar} onOpenCalendar={onOpenCalendar} weather={weather} />}
       <CameraCapture isOpen={isCameraOpen} onCapture={selectImage} onClose={() => setIsCameraOpen(false)} />
     </main>
   )
 }
 
-function DiagnosisReport({ diagnosis, isPlanSaved, onAddPlan, onOpenCalendar }: { diagnosis: CropDiagnosis; isPlanSaved: boolean; onAddPlan: () => void; onOpenCalendar: () => void }) {
+function DiagnosisReport({ diagnosis, isPlanSaved, onAddPlan, onOpenCalendar, weather }: { diagnosis: CropDiagnosis; isPlanSaved: boolean; onAddPlan: () => void; onOpenCalendar: () => void; weather: CropWeatherCheck | null }) {
   return (
     <section className="diagnosis-report" aria-live="polite">
       <header className="diagnosis-report__header"><div><p className="section-kicker">3 · Field guidance</p><h2>Your crop-health report</h2><p>Analysed {dateForDisplay(diagnosis.capturedAt)} · {diagnosis.crop} · {diagnosis.growthStage}</p></div><span className={`risk-badge risk-badge--${diagnosis.risk.toLowerCase()}`}>{diagnosis.risk} attention</span></header>
@@ -182,7 +214,7 @@ function DiagnosisReport({ diagnosis, isPlanSaved, onAddPlan, onOpenCalendar }: 
       </div>
       <div className="diagnosis-report__grid">
         <article className="diagnosis-summary"><h3>What to check now</h3><p>{diagnosis.summary}</p>{diagnosis.alternatives.length > 0 && <div className="alternative-predictions"><span>Also considered</span>{diagnosis.alternatives.map((item) => <b key={item.label}>{item.label} <em>{confidence(item.confidence)}</em></b>)}</div>}</article>
-        <article className="weather-safety"><CloudSun size={22} /><div><h3>Weather safety gate</h3><p>Before any spray, check the next 6–12 hours for rain, high wind or heat. A weather provider must be connected to confirm the window for your field.</p></div></article>
+        <article className={`weather-safety ${weather ? `weather-safety--${weather.status}` : ''}`}><CloudSun size={22} /><div><h3>{weather ? `Weather gate: ${weather.status}` : 'Weather safety gate'}</h3><p>{weather ? weather.summary : 'Before any spray, check the next 6–12 hours for rain, high wind or heat. Connect a weather provider to confirm the window for your field.'}</p>{weather && <small>{weather.temperature_c === null ? '' : `${Math.round(weather.temperature_c)}°C`} {weather.wind_mps === null ? '' : `· ${weather.wind_mps.toFixed(1)} m/s wind`}</small>}</div></article>
       </div>
       <div className="treatment-plan"><div><p className="section-kicker">Suggested treatment path</p><h3>Start with the lowest-risk effective action.</h3></div><ol>{diagnosis.treatment.map((step, index) => <li key={step.title}><span>{String(index + 1).padStart(2, '0')}</span><div><h4>{step.title}</h4><p>{step.detail}</p></div><small>{step.timing}</small></li>)}</ol></div>
       <div className="diagnosis-report__footer"><p><ShieldCheck size={17} /> This is decision support. Confirm uncertain, severe or spreading symptoms with your local agriculture officer before applying pesticides.</p><div>{isPlanSaved ? <button className="secondary-action" onClick={onOpenCalendar} type="button">View advisory calendar <ChevronRight size={16} /></button> : <button className="primary-action" onClick={onAddPlan} type="button"><CalendarPlus size={17} /> Add plan to calendar</button>}</div></div>

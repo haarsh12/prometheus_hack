@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from app.api.routes import router
 from app.api.services_routes import router as services_router
 from app.admin.routes import router as admin_router
+from app.crops.routes import router as crops_router
 from app.auth.routes import router as auth_router
 from app.auth.session import get_session_factory
 from app.config.settings import get_settings
@@ -24,7 +25,7 @@ from app.schemes.repository import SchemeRepository
 
 settings = get_settings()
 configure_logging()
-logger = logging.getLogger("sahayak.app")
+logger = logging.getLogger("shetimitra.app")
 
 
 @asynccontextmanager
@@ -49,7 +50,7 @@ async def lifespan(app: FastAPI):
 
 
 settings.require_runtime_security()
-app = FastAPI(title="Sahayak AI API", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="ShetiMitra AI API", version="0.3.0", lifespan=lifespan)
 
 
 @app.middleware("http")
@@ -94,6 +95,7 @@ app.include_router(knowledge_router)
 app.include_router(schemes_router)
 app.include_router(services_router)
 app.include_router(grievances_router)
+app.include_router(crops_router)
 
 
 if __name__ == "__main__":
