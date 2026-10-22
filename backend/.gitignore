@@ -1,0 +1,20 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+.env.local
+sahayak-dev.db
+.sahayak-dev-jwt
+
+# Google Cloud credentials and service accounts
+*credentials*.json
+*service-account*.json
+project-*.json
+gcp-*.json
+
+# Allow specific JSON config files
+!package.json
+!package-lock.json
+!tsconfig.json
+!.oxlintrc.json

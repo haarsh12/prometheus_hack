@@ -1,0 +1,13 @@
+# Google Cloud Platform Services
+# google-cloud-aiplatform's vertexai.generative_models module is deprecated.
+# Gemini uses the supported Google Gen AI SDK instead.
+google-genai>=2.18.0,<3.0.0
+google-cloud-speech>=2.21.0
+google-cloud-texttospeech>=2.14.1
+pypdf>=5.9,<7.0
+Pillow>=10.4,<12.0
+python-multipart>=0.0.18,<1.0
+webauthn>=2.2,<3.0
+
+# Environment management
+python-dotenv>=1.0.0

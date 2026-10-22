@@ -1,0 +1,179 @@
+# ============================================
+# ROOT .gitignore for prometheus_hack_jit
+# ============================================
+
+# ==================== PYTHON/BACKEND ====================
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+backend/.venv/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Python testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# ==================== NODE.JS/FRONTEND ====================
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+build/
+frontend/dist/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Package manager files (keep lock files but ignore cache)
+.npm
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# ==================== ENVIRONMENT VARIABLES ====================
+# CRITICAL: Never commit environment files with secrets!
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+backend/.env
+frontend/.env
+frontend/.env.kiosk
+
+# ==================== DATABASE ====================
+*.db
+*.sqlite
+*.sqlite3
+sahayak-dev.db
+
+# ==================== SECRETS & CREDENTIALS ====================
+# JWT tokens and keys
+*.jwt
+.sahayak-dev-jwt
+*-jwt
+
+# Google Cloud and other cloud credentials
+*-credentials.json
+*-service-account.json
+gcloud-config/
+.gcp/
+
+# SSH keys
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ==================== IDE & EDITOR ====================
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# JetBrains IDEs (PyCharm, WebStorm, IntelliJ, etc.)
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ==================== OPERATING SYSTEM ====================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+
+# ==================== TEMPORARY FILES ====================
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.cache
+.cache/
+
+# ==================== MISC ====================
+# Local configuration
+*.local
+
+# Editor backup files
+*~
+*.sw?
+*.njsproj
+*.sln
+
+# Coverage reports
+coverage/
+.nyc_output
+
+# Debug files
+*.log
+
+# ==================== EXCEPTIONS ====================
+# Allow specific JSON config files (override previous rules)
+!package.json
+!package-lock.json
+!tsconfig.json
+!tsconfig.*.json
+!.oxlintrc.json

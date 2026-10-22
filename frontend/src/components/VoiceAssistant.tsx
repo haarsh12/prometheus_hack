@@ -1,0 +1,669 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  BarVisualizer,
+  useAgent,
+  useTranscriptions,
+  type UseSessionReturn,
+} from '@livekit/components-react'
+import { ParticipantEvent, RoomEvent, type RemoteParticipant } from 'livekit-client'
+import {
+  AlertCircle,
+  Mic,
+  MicOff,
+  RefreshCw,
+  RotateCcw,
+  ShieldCheck,
+  Volume2,
+  WifiOff,
+} from 'lucide-react'
+
+import { StatusChip } from './StatusChip'
+import { TranscriptPanel, type TranscriptEntry } from './TranscriptPanel'
+import { LanguageSelector } from './LanguageSelector'
+import { getHealth, sendTextChat } from '../lib/api'
+import { type VoiceState, voiceStateDetails } from '../lib/voice-state'
+import {
+  isSupportedLanguage,
+  type EvidenceStatus,
+  type GuestSession,
+  type OfficialSourceReference,
+  type SupportedLanguage,
+} from '../types/api'
+
+type VoiceAssistantProps = {
+  onLanguageChange: (language: SupportedLanguage) => void
+  selectedLanguage: SupportedLanguage
+  session: UseSessionReturn
+  guestSession: GuestSession | null
+  guestSessionError: string | null
+  onStartNewSession: () => Promise<void>
+}
+
+type ServiceReadiness = 'checking' | 'ready' | 'setup-required' | 'offline'
+
+const microphoneConstraints = {
+  autoGainControl: true,
+  channelCount: 1,
+  echoCancellation: true,
+  noiseSuppression: true,
+  voiceIsolation: true,
+}
+
+const languageControlTopic = 'sahayak.language.v1'
+const contextControlTopic = 'sahayak.context.v1'
+const citationControlTopic = 'sahayak.citations.v1'
+const grievanceControlTopic = 'sahayak.grievances.v1'
+const internalVoiceTagPattern = /<\s*(?:analysis|reasoning|thought|thinking)\b[^>]*>[\s\S]*?(?:<\s*\/\s*(?:analysis|reasoning|thought|thinking)\s*>|$)/gi
+
+function cleanAssistantTranscript(text: string): string {
+  return text
+    .replace(internalVoiceTagPattern, '')
+    .replace(/<\/?[^>]+>/g, '')
+    .trim()
+}
+
+type VoiceEvidenceUpdate = {
+  evidenceStatus: EvidenceStatus
+  sources: OfficialSourceReference[]
+  replyText: string
+}
+
+function voiceReplyKey(text: string): string {
+  return cleanAssistantTranscript(text)
+    .replace(/[\p{P}\p{S}]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLocaleLowerCase()
+}
+
+function parseVoiceEvidenceUpdate(value: unknown): VoiceEvidenceUpdate | null {
+  if (!value || typeof value !== 'object' || !('type' in value) || value.type !== 'voice_evidence') return null
+  if (!('evidence_status' in value) || typeof value.evidence_status !== 'string') return null
+  if (!('reply_text' in value) || typeof value.reply_text !== 'string') return null
+  const evidenceStatus = value.evidence_status as EvidenceStatus
+  if (![
+    'VERIFIED_SOURCE',
+    'MULTIPLE_VERIFIED_SOURCES',
+    'PARTIALLY_VERIFIED',
+    'GENERAL_MODEL_KNOWLEDGE',
+    'GENERAL_GUIDANCE',
+    'INSUFFICIENT_EVIDENCE',
+  ].includes(evidenceStatus)) return null
+  const replyText = voiceReplyKey(value.reply_text)
+  if (!replyText || replyText.length > 2_000) return null
+  if (!('sources' in value) || !Array.isArray(value.sources) || value.sources.length > 8) return null
+
+  const sources: OfficialSourceReference[] = []
+  for (const source of value.sources) {
+    if (!source || typeof source !== 'object') return null
+    const candidate = source as Record<string, unknown>
+    const fields = ['name', 'title', 'url', 'freshness_status'] as const
+    if (fields.some((field) => !(field in candidate) || typeof candidate[field] !== 'string')) return null
+    if (
+      (candidate.name as string).length > 200 ||
+      (candidate.title as string).length > 500 ||
+      (candidate.url as string).length > 2_048 ||
+      !['CURRENT', 'SUPERSEDED', 'EXPIRED', 'REVIEW_REQUIRED', 'UNKNOWN', 'FETCH_FAILED', 'EXTRACTION_FAILED'].includes(candidate.freshness_status as string)
+    ) return null
+    try {
+      const url = new URL(candidate.url as string)
+      if (url.protocol !== 'https:' || url.username || url.password) return null
+    } catch {
+      return null
+    }
+    sources.push({
+      name: candidate.name as string,
+      title: candidate.title as string,
+      url: candidate.url as string,
+      document_version: typeof candidate.document_version === 'string' ? candidate.document_version : null,
+      freshness_status: candidate.freshness_status as OfficialSourceReference['freshness_status'],
+    })
+  }
+  return { evidenceStatus, sources, replyText }
+}
+
+function toVoiceState(
+  connectionState: string,
+  agentState: string,
+  userIsSpeaking: boolean,
+  wasInterrupted: boolean,
+  hasError: boolean,
+): VoiceState {
+  if (hasError || agentState === 'failed') return 'error'
+  if (connectionState === 'connecting' || connectionState === 'reconnecting') {
+    return 'connecting'
+  }
+  if (connectionState === 'disconnected') return 'disconnected'
+  if (wasInterrupted) return 'interrupted'
+  if (userIsSpeaking) return 'user-speaking'
+  if (agentState === 'speaking') return 'agent-speaking'
+  if (agentState === 'thinking') return 'thinking'
+  if (agentState === 'listening') return 'listening'
+  return 'idle'
+}
+
+export function VoiceAssistant({
+  onLanguageChange,
+  selectedLanguage,
+  session,
+  guestSession,
+  guestSessionError,
+  onStartNewSession,
+}: VoiceAssistantProps) {
+  const agent = useAgent(session)
+  const transcriptions = useTranscriptions({ room: session.room })
+  const [isMicrophoneEnabled, setIsMicrophoneEnabled] = useState(false)
+  const [isUserSpeaking, setIsUserSpeaking] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [isStarting, setIsStarting] = useState(false)
+  const [isInterrupted, setIsInterrupted] = useState(false)
+  const [serviceReadiness, setServiceReadiness] = useState<ServiceReadiness>('checking')
+  const [isLanguageUpdating, setIsLanguageUpdating] = useState(false)
+  const [transcriptEntries, setTranscriptEntries] = useState<TranscriptEntry[]>([])
+  const [isSendingText, setIsSendingText] = useState(false)
+  const [isResettingSession, setIsResettingSession] = useState(false)
+  const [grievanceSaved, setGrievanceSaved] = useState(false)
+  const interruptionTimeout = useRef<number | undefined>(undefined)
+  const languageUpdateTimeout = useRef<number | undefined>(undefined)
+  const lastConfirmedLanguage = useRef<SupportedLanguage>(selectedLanguage)
+  const latestLanguageRevision = useRef(-1)
+  const pendingVoiceEvidence = useRef<Map<string, VoiceEvidenceUpdate>>(new Map())
+
+  useEffect(() => {
+    const participant = session.room.localParticipant
+    const syncSpeakingState = () => setIsUserSpeaking(participant.isSpeaking)
+
+    syncSpeakingState()
+    participant.on(ParticipantEvent.IsSpeakingChanged, syncSpeakingState)
+    return () => {
+      participant.off(ParticipantEvent.IsSpeakingChanged, syncSpeakingState)
+    }
+  }, [session.room])
+
+  useEffect(() => {
+    if (!session.isConnected) {
+      setIsMicrophoneEnabled(false)
+      setIsUserSpeaking(false)
+    }
+  }, [session.isConnected])
+
+  useEffect(() => {
+    if (!session.room) return
+
+    const handleDataReceived = (
+      payload: Uint8Array,
+      participant?: RemoteParticipant,
+      _kind?: unknown,
+      topic?: string,
+    ) => {
+      if (topic !== languageControlTopic && topic !== citationControlTopic && topic !== grievanceControlTopic) return
+      if (agent.identity && participant?.identity !== agent.identity) return
+
+      try {
+        const data: unknown = JSON.parse(new TextDecoder().decode(payload))
+        if (topic === grievanceControlTopic) {
+          if (!data || typeof data !== 'object' || !('type' in data) || data.type !== 'grievance_update' || !('grievance_id' in data) || typeof data.grievance_id !== 'string' || !/^SAH-GRV-[A-F0-9]{12}$/.test(data.grievance_id)) return
+          setGrievanceSaved(true)
+          return
+        }
+        if (topic === citationControlTopic) {
+          const evidence = parseVoiceEvidenceUpdate(data)
+          if (!evidence) return
+          setTranscriptEntries((entries) => {
+            const targetIndex = entries.findLastIndex(
+              (entry) => (
+                entry.role === 'assistant'
+                && entry.source === 'voice'
+                && voiceReplyKey(entry.text) === evidence.replyText
+              ),
+            )
+            if (targetIndex < 0) {
+              pendingVoiceEvidence.current.set(evidence.replyText, evidence)
+              return entries
+            }
+            const next = [...entries]
+            next[targetIndex] = {
+              ...next[targetIndex],
+              evidenceStatus: evidence.evidenceStatus,
+              sources: evidence.sources,
+            }
+            return next
+          })
+          return
+        }
+        if (
+          !data ||
+          typeof data !== 'object' ||
+          !('type' in data) ||
+          !('language' in data) ||
+          data.type !== 'language_change' ||
+          !isSupportedLanguage(data.language)
+        ) {
+          return
+        }
+
+        const revision = 'revision' in data && typeof data.revision === 'number'
+          ? data.revision
+          : null
+        if (revision !== null && revision < latestLanguageRevision.current) return
+        if (revision !== null) latestLanguageRevision.current = revision
+
+        window.clearTimeout(languageUpdateTimeout.current)
+        lastConfirmedLanguage.current = data.language
+        onLanguageChange(data.language)
+        setIsLanguageUpdating(false)
+      } catch {
+        // Ignore arbitrary data messages; only the agent's small validated
+        // language protocol is consumed by this view.
+      }
+    }
+
+    session.room.on(RoomEvent.DataReceived, handleDataReceived)
+
+    return () => {
+      session.room.off(RoomEvent.DataReceived, handleDataReceived)
+    }
+  }, [agent.identity, onLanguageChange, session.room])
+
+  useEffect(() => {
+    let cancelled = false
+
+    void getHealth()
+      .then((health) => {
+        if (cancelled) return
+        setServiceReadiness(health.configured ? 'ready' : 'setup-required')
+      })
+      .catch(() => {
+        if (!cancelled) setServiceReadiness('offline')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isUserSpeaking && agent.state === 'speaking') {
+      setIsInterrupted(true)
+      window.clearTimeout(interruptionTimeout.current)
+      interruptionTimeout.current = window.setTimeout(() => setIsInterrupted(false), 1100)
+    }
+  }, [agent.state, isUserSpeaking])
+
+  useEffect(
+    () => () => {
+      // Do not call session.end() from a React effect cleanup. In development,
+      // StrictMode deliberately runs that cleanup once after mount, which
+      // looked like a user disconnect before they pressed the first button.
+      window.clearTimeout(interruptionTimeout.current)
+      window.clearTimeout(languageUpdateTimeout.current)
+    },
+    [],
+  )
+
+  const voiceTranscriptEntries = useMemo<TranscriptEntry[]>(
+    () =>
+      transcriptions
+        .map((entry, index) => {
+          const role = entry.participantInfo.identity === agent.identity ? 'assistant' : 'user'
+          const text = role === 'assistant' ? cleanAssistantTranscript(entry.text) : entry.text.trim()
+          if (!text) return null
+          return {
+            id: `voice-${entry.participantInfo.identity}-${index}`,
+            role,
+            text,
+            source: 'voice',
+          }
+        })
+        .filter((entry): entry is TranscriptEntry => entry !== null),
+    [agent.identity, transcriptions],
+  )
+
+  useEffect(() => {
+    if (voiceTranscriptEntries.length === 0) return
+    setTranscriptEntries((entries) => {
+      const next = [...entries]
+      for (const voiceEntry of voiceTranscriptEntries) {
+        const existingIndex = next.findIndex((entry) => entry.id === voiceEntry.id)
+        if (existingIndex >= 0) {
+          const existing = next[existingIndex]
+          next[existingIndex] = {
+            ...voiceEntry,
+            evidenceStatus: existing.evidenceStatus,
+            sources: existing.sources,
+          }
+        } else {
+          const evidence = voiceEntry.role === 'assistant'
+            ? pendingVoiceEvidence.current.get(voiceReplyKey(voiceEntry.text))
+            : undefined
+          if (evidence) pendingVoiceEvidence.current.delete(evidence.replyText)
+          next.push(evidence
+            ? {
+                ...voiceEntry,
+                evidenceStatus: evidence.evidenceStatus,
+                sources: evidence.sources,
+              }
+            : voiceEntry)
+        }
+      }
+      return next
+    })
+  }, [voiceTranscriptEntries])
+
+  useEffect(() => {
+    // A fresh browser capability means a fresh, deliberately isolated guest
+    // conversation. The voice SDK clears its own old transcription history on
+    // disconnect; this resets the locally rendered text history at once.
+    setTranscriptEntries([])
+    pendingVoiceEvidence.current.clear()
+    setGrievanceSaved(false)
+  }, [guestSession?.session_id])
+
+  const agentFailure = agent.state === 'failed' ? agent.failureReasons.join(' ') : null
+  const voiceState = toVoiceState(
+    session.connectionState,
+    agent.state,
+    isUserSpeaking,
+    isInterrupted,
+    Boolean(error || agentFailure),
+  )
+  const stateDetails = voiceStateDetails[voiceState]
+  const readinessMessage = {
+    checking: 'Checking the local voice service…',
+    ready: 'Voice service ready. Connect and allow microphone access to begin.',
+    'setup-required':
+      'Voice assistant is ready. Click to connect and allow microphone access.',
+    offline: 'The local voice API is offline. Start FastAPI on port 8000, then refresh this page.',
+  }[serviceReadiness]
+
+  function friendlyConnectionError(caughtError: unknown): string {
+    const message = caughtError instanceof Error ? caughtError.message : ''
+    if (/503|token service is not configured/i.test(message)) {
+      return 'LiveKit credentials are missing from the server environment. Configure the token API, then try again.'
+    }
+    if (/failed to fetch|networkerror|network request failed/i.test(message)) {
+      return 'The local voice API cannot be reached. Start FastAPI on port 8000, then try again.'
+    }
+    if (/agent.*timeout|agent.*not.*available/i.test(message)) {
+      return 'Connected to LiveKit, but the Sahayak AI voice worker is not available yet. Start the agent worker and try again.'
+    }
+    return 'Unable to start the voice session. Check the service status below and try again.'
+  }
+
+  async function selectLanguage(language: SupportedLanguage): Promise<void> {
+    if (!session.isConnected) {
+      lastConfirmedLanguage.current = language
+      onLanguageChange(language)
+      return
+    }
+
+    const previouslyConfirmedLanguage = lastConfirmedLanguage.current
+    window.clearTimeout(languageUpdateTimeout.current)
+    onLanguageChange(language)
+    setIsLanguageUpdating(true)
+    setError(null)
+
+    try {
+      await session.room.localParticipant.publishData(
+        new TextEncoder().encode(JSON.stringify({ type: 'set_language', language })),
+        { reliable: true, topic: languageControlTopic },
+      )
+      languageUpdateTimeout.current = window.setTimeout(() => {
+        onLanguageChange(lastConfirmedLanguage.current)
+        setIsLanguageUpdating(false)
+        setError('The assistant did not confirm the language change. Please try again.')
+      }, 5_000)
+    } catch {
+      onLanguageChange(previouslyConfirmedLanguage)
+      setIsLanguageUpdating(false)
+      setError('The language change could not be sent. Please try again.')
+    }
+  }
+
+  async function connect(): Promise<void> {
+    if (!guestSession) {
+      setError(guestSessionError ?? 'Preparing your private guest session. Please wait a moment.')
+      return
+    }
+    setIsStarting(true)
+    setError(null)
+
+    try {
+      // TokenSource.endpoint fetches the token itself. Its participant
+      // attributes include the selected language from App, so the agent starts
+      // with matching STT and TTS rather than applying it after speech begins.
+      await session.start({
+        tracks: { microphone: { enabled: false } },
+      })
+      await session.room.startAudio()
+      await session.room.localParticipant.setMicrophoneEnabled(true, microphoneConstraints)
+      setIsMicrophoneEnabled(true)
+    } catch (caughtError) {
+      setError(friendlyConnectionError(caughtError))
+      await session.end()
+    } finally {
+      setIsStarting(false)
+    }
+  }
+
+  async function disconnect(): Promise<void> {
+    setError(null)
+    setIsMicrophoneEnabled(false)
+    await session.end()
+  }
+
+  async function toggleMicrophone(): Promise<void> {
+    if (!session.isConnected) return
+
+    try {
+      const nextEnabled = !isMicrophoneEnabled
+      await session.room.localParticipant.setMicrophoneEnabled(
+        nextEnabled,
+        microphoneConstraints,
+      )
+      setIsMicrophoneEnabled(nextEnabled)
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Microphone access was not available.'
+      setError(message)
+    }
+  }
+
+  async function sendTextMessage(message: string, document: File | null): Promise<void> {
+    if (!guestSession) {
+      const sessionError = guestSessionError ?? 'Your private guest session is still starting. Please try again in a moment.'
+      setError(sessionError)
+      throw new Error(sessionError)
+    }
+    const requestId = crypto.randomUUID()
+    const userText = message || 'Please summarize the attached document.'
+    setTranscriptEntries((entries) => [
+      ...entries,
+      {
+        id: `text-user-${requestId}`,
+        role: 'user',
+        text: userText,
+        attachmentName: document?.name,
+        source: 'text',
+      },
+    ])
+    setIsSendingText(true)
+    setError(null)
+
+    try {
+      const response = await sendTextChat(message, selectedLanguage, document, guestSession)
+      setTranscriptEntries((entries) => [
+        ...entries,
+        {
+          id: `text-assistant-${requestId}`,
+          role: 'assistant',
+          text: cleanAssistantTranscript(response.message),
+          evidenceStatus: response.evidence_status,
+          sources: response.sources,
+          source: 'text',
+        },
+      ])
+      if (session.isConnected) {
+        try {
+          await session.room.localParticipant.publishData(
+            new TextEncoder().encode(JSON.stringify({ type: 'refresh_context' })),
+            { reliable: true, topic: contextControlTopic },
+          )
+        } catch {
+          // The text reply is already complete. A failed optional live-room
+          // refresh must not erase it; the next voice reconnect will reload
+          // the same in-memory session context.
+        }
+      }
+    } catch (caughtError) {
+      const textError = caughtError instanceof Error
+        ? caughtError.message
+        : 'The text message could not be sent. Please try again.'
+      setTranscriptEntries((entries) => entries.filter((entry) => entry.id !== `text-user-${requestId}`))
+      setError(textError)
+      throw new Error(textError)
+    } finally {
+      setIsSendingText(false)
+    }
+  }
+
+  async function startNewSession(): Promise<void> {
+    setIsResettingSession(true)
+    setError(null)
+    try {
+      if (session.isConnected) await disconnect()
+      await onStartNewSession()
+      setTranscriptEntries([])
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'A new session could not be started. Please refresh and try again.',
+      )
+    } finally {
+      setIsResettingSession(false)
+    }
+  }
+
+  return (
+    <main className="voice-app">
+      <header className="voice-app__header">
+        <div>
+          <p className="section-kicker">Voice workspace</p>
+          <h1>Talk to Sahayak AI</h1>
+        </div>
+        <div className="voice-app__header-actions">
+          <button
+            className="new-session-button"
+            disabled={isStarting || isResettingSession}
+            onClick={() => void startNewSession()}
+            title="Clear this guest conversation and start a new one"
+            type="button"
+          >
+            <RotateCcw size={16} aria-hidden="true" />
+            {isResettingSession ? 'Starting…' : 'New session'}
+          </button>
+          <StatusChip state={voiceState} />
+        </div>
+      </header>
+
+      <LanguageSelector
+        selectedLanguage={selectedLanguage}
+        onLanguageChange={(language) => void selectLanguage(language)}
+        disabled={isStarting || isResettingSession}
+        isConnected={session.isConnected}
+        isUpdating={isLanguageUpdating}
+      />
+
+      <div className="split-layout">
+        <section className="voice-stage" aria-label="Sahayak AI voice session">
+          <div className={`voice-orb voice-orb--${voiceState}`}>
+            <div className="voice-orb__core">
+              {agent.microphoneTrack ? (
+                <BarVisualizer
+                  barCount={9}
+                  className="agent-visualizer"
+                  options={{ maxHeight: 86, minHeight: 16 }}
+                  state={agent.state}
+                  track={agent.microphoneTrack}
+                />
+              ) : (
+                <Volume2 size={42} strokeWidth={1.35} aria-hidden="true" />
+              )}
+            </div>
+          </div>
+
+          <div className="voice-stage__copy">
+            <p className="eyebrow">Realtime voice assistant</p>
+            <h1>{stateDetails.label}</h1>
+            <p>{stateDetails.description}</p>
+          </div>
+
+          {!session.isConnected && (
+            <p className={`service-notice service-notice--${serviceReadiness}`} role="status">
+              {serviceReadiness === 'ready' && <span className="service-notice__dot" aria-hidden="true" />}
+              {readinessMessage}
+            </p>
+          )}
+
+          <div className="controls" aria-label="Voice controls">
+            {session.isConnected ? (
+              <>
+                <button
+                  aria-label={isMicrophoneEnabled ? 'Mute microphone' : 'Unmute microphone'}
+                  className={`round-button ${isMicrophoneEnabled ? 'round-button--active' : ''}`}
+                  onClick={() => void toggleMicrophone()}
+                  type="button"
+                >
+                  {isMicrophoneEnabled ? <Mic size={21} /> : <MicOff size={21} />}
+                </button>
+                <button className="disconnect-button" onClick={() => void disconnect()} type="button">
+                  <WifiOff size={18} />
+                  Disconnect
+                </button>
+              </>
+            ) : (
+              <button
+                className="connect-button"
+                disabled={isStarting || isResettingSession || !guestSession || serviceReadiness === 'offline'}
+                onClick={() => void connect()}
+                type="button"
+              >
+                {isStarting ? <RefreshCw className="spin" size={18} /> : <Mic size={18} />}
+                {isStarting ? 'Connecting…' : serviceReadiness === 'ready' ? 'Start conversation' : 'Connect to voice assistant'}
+              </button>
+            )}
+          </div>
+
+          <div className="input-meter" aria-live="polite">
+            <span className="input-meter__label">Your microphone</span>
+            {session.local.microphoneTrack ? (
+              <BarVisualizer
+                barCount={18}
+                className="user-visualizer"
+                options={{ maxHeight: 68, minHeight: 8 }}
+                track={session.local.microphoneTrack}
+              />
+            ) : (
+              <span className="input-meter__inactive">Microphone is off</span>
+            )}
+          </div>
+
+          {(error || agentFailure) && (
+            <div className="error-banner" role="alert">
+              <AlertCircle size={19} />
+              <span>{error || agentFailure}</span>
+            </div>
+          )}
+          {grievanceSaved && <div className="voice-grievance-notice" role="status"><ShieldCheck size={18} /><span>Your grievance draft was updated privately. <a href="/grievances">Open grievance workspace</a></span></div>}
+        </section>
+
+        <TranscriptPanel
+          entries={transcriptEntries}
+          isSendingText={isSendingText}
+          onSendText={sendTextMessage}
+          disabled={!guestSession || isResettingSession}
+        />
+      </div>
+    </main>
+  )
+}
