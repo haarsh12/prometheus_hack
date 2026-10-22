@@ -19,6 +19,7 @@ import type {
   GrievanceStatus,
 } from '../types/api'
 import type { ServerWebAuthnOptions, WebAuthnCredentialJSON } from './webauthn'
+import type { CropDiagnosis, CropName, GrowthStage, SymptomBox, TreatmentStep } from './crop-diagnosis'
 import { cache } from './cache'
 
 // Local Vite development uses the same-origin /api proxy. This works when the
@@ -63,6 +64,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T
 }
 
+async function requestMultipart<T>(path: string, form: FormData): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(`${apiBaseUrl}${path}`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: clientDeviceHeaders(),
+      body: form,
+    })
+  } catch {
+    throw new Error('ShetiMitra AI cannot reach its local service. Refresh this page, then make sure the API is running.')
+  }
+  if (!response.ok) throw new Error(await getSafeError(response))
+  return (await response.json()) as T
+}
+
 async function getSafeError(response: Response): Promise<string> {
   try {
     const body: unknown = await response.json()
@@ -103,6 +120,92 @@ export type CropWeatherCheck = {
 export function getCropWeather(latitude: number, longitude: number): Promise<CropWeatherCheck> {
   const query = new URLSearchParams({ latitude: String(latitude), longitude: String(longitude) })
   return request<CropWeatherCheck>(`/api/crop-weather?${query.toString()}`, { method: 'GET' })
+}
+
+type CropVisionResponse = {
+  id: string
+  crop: CropName
+  growth_stage: GrowthStage
+  label: string
+  category: CropDiagnosis['category']
+  confidence: number
+  severity: CropDiagnosis['risk']
+  summary: string
+  observations: string[]
+  boxes: SymptomBox[]
+  affected_leaf_area_percent: number | null
+  treatment: TreatmentStep[]
+  followup_days: number
+  caution: string
+  captured_at: string
+  model_name: string
+  saved: boolean
+}
+
+/** Send the exact selected leaf photo for one request-scoped Gemini Vision screening. */
+export async function analyzeCropImage(
+  image: File,
+  crop: CropName,
+  growthStage: GrowthStage,
+): Promise<CropDiagnosis> {
+  const form = new FormData()
+  form.set('image', image)
+  form.set('crop', crop)
+  form.set('growth_stage', growthStage)
+  const response = await requestMultipart<CropVisionResponse>('/api/crop-diagnoses', form)
+  return {
+    id: response.id,
+    crop: response.crop,
+    growthStage: response.growth_stage,
+    label: response.label,
+    confidence: response.confidence,
+    alternatives: [],
+    risk: response.severity,
+    category: response.category,
+    summary: response.summary,
+    observations: response.observations,
+    symptomBoxes: response.boxes,
+    treatment: response.treatment,
+    followUpDays: response.followup_days,
+    caution: response.caution,
+    modelName: response.model_name,
+    affectedLeafArea: response.affected_leaf_area_percent,
+    capturedAt: response.captured_at,
+    saved: response.saved,
+  }
+}
+
+export type FarmCalendarEvent = {
+  id: string
+  date: string
+  title: string
+  detail: string | null
+  kind: 'personal' | 'treatment' | 'check' | 'weather'
+  crop: string | null
+  origin: 'manual' | 'diagnosis'
+  created_at: string
+}
+
+export type FarmCalendarEventInput = {
+  event_date: string
+  title: string
+  detail?: string
+  kind: FarmCalendarEvent['kind']
+  crop?: string
+  origin?: FarmCalendarEvent['origin']
+}
+
+export function getFarmCalendarEvents(start: string, end: string): Promise<FarmCalendarEvent[]> {
+  const query = new URLSearchParams({ start, end })
+  return request<FarmCalendarEvent[]>(`/api/farm-calendar?${query.toString()}`, { method: 'GET' })
+}
+
+export function createFarmCalendarEvent(payload: FarmCalendarEventInput): Promise<FarmCalendarEvent> {
+  return request<FarmCalendarEvent>('/api/farm-calendar', {
+    method: 'POST',
+    headers: csrfHeaders(),
+    body: JSON.stringify(payload),
+  })
 }
 
 export function getSchemes(params: {

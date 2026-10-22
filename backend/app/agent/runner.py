@@ -9,6 +9,7 @@ import re
 from collections import deque
 from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +44,7 @@ from app.auth.models import Account
 from app.config.settings import MissingConfigurationError, get_settings
 from app.core.client_device import ClientDevice, LIVEKIT_DEVICE_ATTRIBUTE, parse_client_device
 from app.core.logging import configure_logging
+from app.crops.service import list_calendar_events
 from app.knowledge.contracts import Citation, EvidenceStatus, UserKnowledgeContext
 from app.knowledge.voice import VoiceKnowledgeService, VoiceKnowledgeTurn
 from app.services.guest_session_client import (
@@ -436,6 +438,43 @@ class SahayakAssistant(Agent):
         except Exception as error:
             logger.error("grievance_status_check_failed error=%s", error, exc_info=True)
             return {"found": False, "message": "Failed to check the grievance status. Please try again."}
+
+    @function_tool()
+    async def get_my_upcoming_farm_events(self) -> dict[str, object]:
+        """Read the signed-in farmer's upcoming personal and crop calendar events.
+
+        Use when the farmer asks about reminders, calendar dates, upcoming
+        treatments, field checks, or planned personal farm work. This reads
+        ShetiMitra's saved calendar only and never changes it.
+        """
+
+        if self._account_id is None:
+            return {"found": False, "message": "Sign in is required to view saved farm calendar events."}
+        factory = get_session_factory()
+        if factory is None:
+            return {"found": False, "message": "The farm calendar is unavailable right now."}
+        try:
+            async with factory() as session:
+                events = await list_calendar_events(
+                    session, self._account_id, start=date.today(), end=date.max, limit=8
+                )
+            return {
+                "found": bool(events),
+                "events": [
+                    {
+                        "date": event.event_date.isoformat(),
+                        "title": event.title,
+                        "detail": event.detail,
+                        "kind": event.kind,
+                        "crop": event.crop,
+                    }
+                    for event in events
+                ],
+                "message": "These are ShetiMitra's saved calendar events, not a live weather check.",
+            }
+        except Exception as error:
+            logger.error("farm_calendar_query_failed error=%s", error, exc_info=True)
+            return {"found": False, "message": "The farm calendar could not be checked right now."}
 
     async def on_user_turn_completed(
         self,

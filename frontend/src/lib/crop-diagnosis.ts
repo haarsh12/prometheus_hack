@@ -13,6 +13,14 @@ export type TreatmentStep = {
   kind: 'observe' | 'bio' | 'spray' | 'field'
 }
 
+export type SymptomBox = {
+  label: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export type CropDiagnosis = {
   id: string
   crop: CropName
@@ -21,12 +29,17 @@ export type CropDiagnosis = {
   confidence: number
   alternatives: Array<{ label: string; confidence: number }>
   risk: 'Low' | 'Moderate' | 'High'
+  category: 'healthy' | 'fungal' | 'pest' | 'nutrient' | 'water' | 'unknown'
   summary: string
+  observations: string[]
+  symptomBoxes: SymptomBox[]
   treatment: TreatmentStep[]
   followUpDays: number
+  caution: string
   modelName: string
   affectedLeafArea: number | null
   capturedAt: string
+  saved?: boolean
 }
 
 export class CropModelUnavailableError extends Error {
@@ -56,8 +69,12 @@ const configuredLabels = (import.meta.env.VITE_CROP_MODEL_LABELS as string | und
 const configuredModelName = import.meta.env.VITE_CROP_MODEL_NAME?.trim() || 'ONNX Runtime Web classifier'
 
 export const cropRuntimeStatus = {
-  ready: Boolean(configuredModelUrl),
-  modelName: configuredModelName,
+  // Gemini Vision is the default live path. The optional ONNX configuration
+  // remains available only for a separately validated local crop model.
+  ready: true,
+  modelName: 'Gemini Vision',
+  localOnnxReady: Boolean(configuredModelUrl),
+  localOnnxModelName: configuredModelName,
   segmentationReady: Boolean(import.meta.env.VITE_CROP_SEGMENTATION_MODEL_URL?.trim()),
 }
 
@@ -66,54 +83,73 @@ function treatmentFor(label: string): Omit<CropDiagnosis, 'id' | 'crop' | 'growt
   if (key.includes('healthy')) {
     return {
       risk: 'Low',
+      category: 'healthy',
       summary: 'No disease pattern was detected by the configured classifier. Continue routine scouting and compare another leaf if symptoms are visible in the field.',
+      observations: [],
+      symptomBoxes: [],
       treatment: [
         { title: 'Scout the crop', detail: 'Inspect five plants in each field section, including the underside of leaves.', timing: 'Every 5–7 days', kind: 'observe' },
         { title: 'Keep foliage dry', detail: 'Water at the soil line in the morning and maintain crop-appropriate spacing for airflow.', timing: 'Routine', kind: 'field' },
       ],
       followUpDays: 7,
+      caution: 'Compare more than one plant if you can see a symptom in the field.',
     }
   }
   if (key.includes('nitrogen') || key.includes('potassium') || key.includes('deficiency')) {
     const nutrient = key.includes('potassium') ? 'potassium' : 'nitrogen'
     return {
       risk: 'Moderate',
+      category: 'nutrient',
       summary: `The leaf pattern is consistent with possible ${nutrient} stress. Confirm with a soil or tissue test before applying fertiliser, especially where drought or root damage may mimic deficiency.`,
+      observations: [],
+      symptomBoxes: [],
       treatment: [
         { title: 'Confirm before feeding', detail: 'Check the pattern across young and old leaves and use a local soil/tissue test where available.', timing: 'Within 2 days', kind: 'observe' },
         { title: 'Correct the root-zone cause', detail: 'Restore even soil moisture and check drainage; nutrient uptake drops sharply in waterlogged or very dry soil.', timing: 'Today', kind: 'field' },
         { title: 'Use a local recommendation', detail: 'Apply only the dose prescribed for this crop, growth stage and soil test by an extension officer or soil-health card.', timing: 'After confirmation', kind: 'spray' },
       ],
       followUpDays: 5,
+      caution: 'Do not use a leaf photo alone to decide a fertiliser dose.',
     }
   }
   if (key.includes('pest') || key.includes('miner') || key.includes('insect')) {
     return {
       risk: 'Moderate',
+      category: 'pest',
       summary: 'The classifier found a pest-damage pattern. Inspect live insects and the underside of affected leaves before selecting a control; leaf injury alone does not identify the pest species.',
+      observations: [],
+      symptomBoxes: [],
       treatment: [
         { title: 'Check the action threshold', detail: 'Count affected plants in five representative spots and photograph any insects, eggs or frass.', timing: 'Today', kind: 'observe' },
         { title: 'Start with lower-cost IPM', detail: 'Remove heavily infested leaves where practical, conserve beneficial insects and use crop-specific traps or biocontrol recommended locally.', timing: 'Today–tomorrow', kind: 'bio' },
         { title: 'Escalate only if threshold is crossed', detail: 'Select a locally registered crop-and-pest product and follow its label dose, PPE and pre-harvest interval exactly.', timing: 'After field confirmation', kind: 'spray' },
       ],
       followUpDays: 3,
+      caution: 'Confirm the pest on several plants before selecting a control.',
     }
   }
   if (key.includes('water') || key.includes('wilt')) {
     return {
       risk: 'Moderate',
+      category: 'water',
       summary: 'The image may show water stress. Check soil moisture at root depth and inspect for root disease before increasing irrigation.',
+      observations: [],
+      symptomBoxes: [],
       treatment: [
         { title: 'Measure root-zone moisture', detail: 'Check 10–15 cm below the surface at several points rather than judging only the topsoil.', timing: 'Today', kind: 'observe' },
         { title: 'Irrigate evenly', detail: 'Use a short, early-morning irrigation when soil is dry. Avoid waterlogging and avoid peak afternoon irrigation.', timing: 'If soil is dry', kind: 'field' },
         { title: 'Mulch exposed soil', detail: 'Use locally available clean organic mulch to reduce evaporation and keep moisture more stable.', timing: 'This week', kind: 'bio' },
       ],
       followUpDays: 2,
+      caution: 'Do not increase irrigation until root-zone moisture is checked.',
     }
   }
   return {
     risk: 'High',
+    category: 'fungal',
     summary: 'The classifier found a disease-like leaf pattern. Confirm the symptom across multiple plants before treatment and act early to limit spread.',
+    observations: [],
+    symptomBoxes: [],
     treatment: [
       { title: 'Isolate the hotspot', detail: 'Mark the affected area, avoid handling healthy plants after diseased plants, and clean tools between rows.', timing: 'Today', kind: 'field' },
       { title: 'Reduce leaf wetness', detail: 'Avoid overhead irrigation late in the day and improve airflow through crop-appropriate spacing and weed control.', timing: 'Today', kind: 'field' },
@@ -121,6 +157,7 @@ function treatmentFor(label: string): Omit<CropDiagnosis, 'id' | 'crop' | 'growt
       { title: 'Use a registered product only if needed', detail: 'If symptoms spread after confirmation, ask an agriculture officer for a crop-specific registered option and label dose. Never mix products without advice.', timing: 'Dry weather window', kind: 'spray' },
     ],
     followUpDays: 3,
+    caution: 'A classifier result is screening only; confirm severe or spreading symptoms locally.',
   }
 }
 

@@ -20,6 +20,7 @@ from app.auth.security import get_optional_current_account
 from app.auth.session import get_auth_session
 from app.config.settings import MissingConfigurationError, Settings, get_settings
 from app.core.client_device import ClientDeviceContext, get_client_device_context
+from app.crops.service import upcoming_calendar_context
 from app.knowledge.contracts import Citation, EvidenceStatus, UserKnowledgeContext
 from app.knowledge.policy import decide_response
 from app.knowledge.retrieval import KnowledgeRetriever, format_evidence_for_model
@@ -260,7 +261,11 @@ async def delete_guest_session(session_id: str, request: Request) -> None:
 
 
 @router.get("/internal/guest-sessions/{session_id}/context", response_model=GuestContextResponse)
-async def get_voice_guest_context(session_id: str, request: Request) -> GuestContextResponse:
+async def get_voice_guest_context(
+    session_id: str,
+    request: Request,
+    session: AsyncSession = Depends(get_auth_session),
+) -> GuestContextResponse:
     """Return bounded context only to a worker with the guest-session capability."""
 
     normalized_id = _guest_session_id(session_id)
@@ -281,8 +286,17 @@ async def get_voice_guest_context(session_id: str, request: Request) -> GuestCon
         if profile is not None
         else None
     )
+    context = snapshot.render_context(max_characters=MAX_AGENT_CONTEXT_CHARACTERS)
+    if snapshot.account_id is not None:
+        try:
+            calendar_context = await upcoming_calendar_context(session, snapshot.account_id)
+            context = f"{context}\n\n{calendar_context}".strip()
+        except Exception:
+            # Calendar context enhances the assistant but should never block a
+            # signed-in farmer from starting a voice session.
+            logger.warning("voice_calendar_context_unavailable", exc_info=True)
     return GuestContextResponse(
-        context=snapshot.render_context(max_characters=MAX_AGENT_CONTEXT_CHARACTERS),
+        context=context[:MAX_AGENT_CONTEXT_CHARACTERS],
         knowledge_context=knowledge_context,
         has_reference_documents=bool(snapshot.documents),
         account_id=snapshot.account_id,
