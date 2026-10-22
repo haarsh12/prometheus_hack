@@ -17,6 +17,7 @@ const NAVIGATION: Array<{ label: string; route: AppRoute; protected?: boolean }>
   { label: 'Crop Analyzer', route: '/crop-analyzer' },
   { label: 'Advisory Calendar', route: '/calendar' },
   { label: 'My Farm', route: '/dashboard' },
+  { label: 'Schemes', route: '/schemes' },
   { label: 'Ask ShetiMitra', route: '/voice' },
 ]
 

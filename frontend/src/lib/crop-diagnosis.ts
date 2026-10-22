@@ -23,8 +23,8 @@ export type SymptomBox = {
 
 export type CropDiagnosis = {
   id: string
-  crop: CropName
-  growthStage: GrowthStage
+  crop: string
+  growthStage: string
   label: string
   confidence: number
   alternatives: Array<{ label: string; confidence: number }>
@@ -69,10 +69,10 @@ const configuredLabels = (import.meta.env.VITE_CROP_MODEL_LABELS as string | und
 const configuredModelName = import.meta.env.VITE_CROP_MODEL_NAME?.trim() || 'ONNX Runtime Web classifier'
 
 export const cropRuntimeStatus = {
-  // Gemini Vision is the default live path. The optional ONNX configuration
+  // CropVision is the default live path. The optional ONNX configuration
   // remains available only for a separately validated local crop model.
   ready: true,
-  modelName: 'Gemini Vision',
+  modelName: 'ShetiMitra CropVision',
   localOnnxReady: Boolean(configuredModelUrl),
   localOnnxModelName: configuredModelName,
   segmentationReady: Boolean(import.meta.env.VITE_CROP_SEGMENTATION_MODEL_URL?.trim()),

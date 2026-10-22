@@ -22,12 +22,8 @@ import {
 
 import { CameraCapture } from './CameraCapture'
 import {
-  CROPS,
-  GROWTH_STAGES,
   cropRuntimeStatus,
   type CropDiagnosis,
-  type CropName,
-  type GrowthStage,
 } from '../lib/crop-diagnosis'
 import { buildDiagnosisPlan, saveCalendarEntries, saveDiagnosis } from '../lib/crop-ledger'
 import {
@@ -51,8 +47,7 @@ export function CropAnalyzer({ onOpenCalendar }: { onOpenCalendar: () => void })
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [crop, setCrop] = useState<CropName>('Tomato')
-  const [growthStage, setGrowthStage] = useState<GrowthStage>('Vegetative')
+  const [displayBounds, setDisplayBounds] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
   const [isCameraOpen, setIsCameraOpen] = useState(false)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [progress, setProgress] = useState('')
@@ -82,6 +77,7 @@ export function CropAnalyzer({ onOpenCalendar }: { onOpenCalendar: () => void })
       return URL.createObjectURL(nextFile)
     })
     setFile(nextFile)
+    setDisplayBounds(null)
     setDiagnosis(null)
     setIsPlanSaved(false)
     setScheduleNotice(null)
@@ -91,6 +87,7 @@ export function CropAnalyzer({ onOpenCalendar }: { onOpenCalendar: () => void })
   function removePhoto(): void {
     setFile(null)
     setDiagnosis(null)
+    setDisplayBounds(null)
     setPreviewUrl((current) => {
       if (current) URL.revokeObjectURL(current)
       return null
@@ -109,6 +106,22 @@ export function CropAnalyzer({ onOpenCalendar }: { onOpenCalendar: () => void })
     if (nextFile) selectImage(nextFile)
   }
 
+  function measureImageBounds(image: HTMLImageElement): void {
+    const container = image.parentElement
+    if (!container || !image.naturalWidth || !image.naturalHeight) return
+    const containerWidth = container.clientWidth
+    const containerHeight = container.clientHeight
+    const imageRatio = image.naturalWidth / image.naturalHeight
+    const containerRatio = containerWidth / containerHeight
+    if (imageRatio >= containerRatio) {
+      const height = containerWidth / imageRatio
+      setDisplayBounds({ left: 0, top: (containerHeight - height) / 2, width: containerWidth, height })
+    } else {
+      const width = containerHeight * imageRatio
+      setDisplayBounds({ left: (containerWidth - width) / 2, top: 0, width, height: containerHeight })
+    }
+  }
+
   async function analyze(): Promise<void> {
     if (!file) {
       setError('Take or upload a clear leaf photo first.')
@@ -119,9 +132,9 @@ export function CropAnalyzer({ onOpenCalendar }: { onOpenCalendar: () => void })
     setIsPlanSaved(false)
     setScheduleNotice(null)
     setIsAnalyzing(true)
-    setProgress('Sending your original photo for Gemini Vision screening…')
+    setProgress('Running ShetiMitra CropVision analysis…')
     try {
-      const result = await analyzeCropImage(file, crop, growthStage)
+      const result = await analyzeCropImage(file)
       setDiagnosis(result)
       saveDiagnosis(result)
     } catch (caughtError) {
@@ -202,7 +215,7 @@ export function CropAnalyzer({ onOpenCalendar }: { onOpenCalendar: () => void })
 
       <section className="runtime-notice runtime-notice--ready">
         <span><ShieldCheck size={19} /></span>
-        <div><strong>Gemini Vision is ready for live photo screening.</strong><p>Your selected photo is sent unchanged to the configured Gemini service for this diagnosis. ShetiMitra does not save the photo; only a signed-in farmer’s result summary can be kept in their crop ledger. {cropRuntimeStatus.localOnnxReady ? `${cropRuntimeStatus.localOnnxModelName} is also configured for optional on-device work.` : 'A validated ONNX lesion model can be connected later for local-only inference.'}</p></div>
+        <div><strong>ShetiMitra CropVision is ready for live photo screening.</strong><p>Your selected photo is processed only for this crop-health analysis. ShetiMitra does not save the photo; only a signed-in farmer’s result summary can be kept in their crop ledger. {cropRuntimeStatus.localOnnxReady ? `${cropRuntimeStatus.localOnnxModelName} is also configured for optional on-device work.` : 'A validated ONNX lesion model can be connected later for local-only inference.'}</p></div>
       </section>
 
       <section className="analyzer-workspace" aria-label="Leaf image diagnosis">
@@ -212,8 +225,8 @@ export function CropAnalyzer({ onOpenCalendar }: { onOpenCalendar: () => void })
           <input accept="image/jpeg,image/png,image/webp" capture="environment" hidden onChange={handleFileChange} ref={inputRef} type="file" />
           {previewUrl ? (
             <div className="leaf-preview">
-              <img alt="Selected leaf for analysis" src={previewUrl} />
-              {diagnosis?.symptomBoxes.length ? <div aria-label="Gemini visual focus areas" className="leaf-preview__boxes">{diagnosis.symptomBoxes.map((box, index) => <span aria-label={box.label} className="leaf-preview__box" key={`${box.label}-${index}`} style={{ left: `${box.x / 10}%`, top: `${box.y / 10}%`, width: `${box.width / 10}%`, height: `${box.height / 10}%` }}><b>{box.label}</b></span>)}</div> : null}
+              <img alt="Selected leaf for analysis" onLoad={(event) => measureImageBounds(event.currentTarget)} src={previewUrl} />
+              {diagnosis?.symptomBoxes.length && displayBounds ? <div aria-label="CropVision visual focus areas" className="leaf-preview__boxes" style={displayBounds}>{diagnosis.symptomBoxes.map((box, index) => <span aria-label={box.label} className="leaf-preview__box" key={`${box.label}-${index}`} style={{ left: `${box.x / 10}%`, top: `${box.y / 10}%`, width: `${box.width / 10}%`, height: `${box.height / 10}%` }}><b>{box.label}</b></span>)}</div> : null}
               <button aria-label="Remove selected photo" className="leaf-preview__remove" onClick={removePhoto} type="button"><X size={18} /></button>
               <span><CheckCircle2 size={16} /> {diagnosis?.symptomBoxes.length ? `${diagnosis.symptomBoxes.length} visual focus area${diagnosis.symptomBoxes.length === 1 ? '' : 's'}` : 'Photo ready'}</span>
             </div>
@@ -226,9 +239,8 @@ export function CropAnalyzer({ onOpenCalendar }: { onOpenCalendar: () => void })
         </div>
 
         <div className="analyzer-context-card">
-          <div className="analyzer-card-heading"><div><p className="section-kicker">2 · Context</p><h2>Tell us about this leaf</h2></div><span className="analyzer-step-number">02</span></div>
-          <label className="analyzer-field">Crop<select onChange={(event) => setCrop(event.target.value as CropName)} value={crop}>{CROPS.map((name) => <option key={name}>{name}</option>)}</select></label>
-          <label className="analyzer-field">Growth stage<select onChange={(event) => setGrowthStage(event.target.value as GrowthStage)} value={growthStage}>{GROWTH_STAGES.map((stage) => <option key={stage}>{stage}</option>)}</select></label>
+          <div className="analyzer-card-heading"><div><p className="section-kicker">2 · Analyse</p><h2>CropVision reads the leaf</h2></div><span className="analyzer-step-number">02</span></div>
+          <p className="analyzer-helper analyzer-helper--context">The analysis detects the likely crop, growth stage and visible stress pattern directly from your photo. You do not need to select them manually.</p>
           <div className="analyzer-checklist"><span><Leaf size={16} /> Photograph more than one plant.</span><span><Sprout size={16} /> Note irrigation and recent rainfall.</span><span><FlaskConical size={16} /> Do not spray based on one uncertain photo.</span></div>
           <button className="analyze-button" disabled={!file || isAnalyzing} onClick={() => void analyze()} type="button">{isAnalyzing ? <LoaderCircle className="spin" size={19} /> : <ScanLine size={19} />}{isAnalyzing ? progress || 'Analysing…' : 'Analyse leaf with ShetiMitra'}<ChevronRight size={17} /></button>
           {error && <p className="analyzer-error" role="alert"><AlertTriangle size={17} /> {error}</p>}
@@ -252,7 +264,7 @@ function DiagnosisReport({ diagnosis, isPlanSaved, onRequestPlan, onOpenCalendar
       <header className="diagnosis-report__header"><div><p className="section-kicker">3 · Field guidance</p><h2>Your crop-health report</h2><p>Analysed {dateForDisplay(diagnosis.capturedAt)} · {diagnosis.crop} · {diagnosis.growthStage}</p></div><span className={`risk-badge risk-badge--${diagnosis.risk.toLowerCase()}`}>{diagnosis.risk} attention</span></header>
       <div className="diagnosis-metrics">
         <article><span>Likely pattern</span><strong>{diagnosis.label}</strong><small>{diagnosis.modelName} visual screening</small></article>
-        <article><span>Visual confidence</span><strong>{confidence(diagnosis.confidence)}</strong><small>Gemini’s image assessment, not a lab-confirmed probability.</small></article>
+        <article><span>Visual confidence</span><strong>{confidence(diagnosis.confidence)}</strong><small>CropVision image assessment, not a lab-confirmed probability.</small></article>
         <article><span>Affected leaf area</span><strong>{diagnosis.affectedLeafArea === null ? '—' : `${Math.round(diagnosis.affectedLeafArea)}%`}</strong><small>{diagnosis.affectedLeafArea === null ? 'Not reliable from this one photo.' : 'Visual estimate from this photo.'}</small></article>
       </div>
       <div className="diagnosis-report__grid">

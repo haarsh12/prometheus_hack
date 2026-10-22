@@ -19,7 +19,7 @@ import type {
   GrievanceStatus,
 } from '../types/api'
 import type { ServerWebAuthnOptions, WebAuthnCredentialJSON } from './webauthn'
-import type { CropDiagnosis, CropName, GrowthStage, SymptomBox, TreatmentStep } from './crop-diagnosis'
+import type { CropDiagnosis, SymptomBox, TreatmentStep } from './crop-diagnosis'
 import { cache } from './cache'
 
 // Local Vite development uses the same-origin /api proxy. This works when the
@@ -124,8 +124,8 @@ export function getCropWeather(latitude: number, longitude: number): Promise<Cro
 
 type CropVisionResponse = {
   id: string
-  crop: CropName
-  growth_stage: GrowthStage
+  crop: string
+  growth_stage: string
   label: string
   category: CropDiagnosis['category']
   confidence: number
@@ -142,16 +142,12 @@ type CropVisionResponse = {
   saved: boolean
 }
 
-/** Send the exact selected leaf photo for one request-scoped Gemini Vision screening. */
+/** Send the exact selected leaf photo for one request-scoped CropVision screening. */
 export async function analyzeCropImage(
   image: File,
-  crop: CropName,
-  growthStage: GrowthStage,
 ): Promise<CropDiagnosis> {
   const form = new FormData()
   form.set('image', image)
-  form.set('crop', crop)
-  form.set('growth_stage', growthStage)
   const response = await requestMultipart<CropVisionResponse>('/api/crop-diagnoses', form)
   return {
     id: response.id,

@@ -210,7 +210,7 @@ async def create_crop_diagnosis(
     session: AsyncSession = Depends(get_auth_session),
     settings: Settings = Depends(get_settings),
 ) -> CropDiagnosisResponse:
-    """Analyze an original farmer-uploaded leaf photo through Gemini Vision.
+    """Analyze an original farmer-uploaded leaf photo through CropVision.
 
     The bytes exist only for this request and provider call.  If the farmer is
     signed in, a result summary (never the photo) is saved to their health
@@ -227,12 +227,16 @@ async def create_crop_diagnosis(
             raise HTTPException(status_code=400, detail="Invalid Content-Length header.") from error
     try:
         async with request.form(max_files=1, max_fields=5, max_part_size=MAX_CROP_IMAGE_BYTES) as form:
-            crop = _multipart_text(form.get("crop"), field="crop")
-            growth_stage = _multipart_text(form.get("growth_stage"), field="growth_stage")
+            crop_value = form.get("crop")
+            growth_stage_value = form.get("growth_stage")
+            crop = crop_value.strip() if isinstance(crop_value, str) else None
+            growth_stage = growth_stage_value.strip() if isinstance(growth_stage_value, str) else None
             image = form.get("image")
             if not isinstance(image, UploadFile):
                 raise HTTPException(status_code=422, detail="A leaf photo is required.")
-            if crop not in _ALLOWED_CROPS or growth_stage not in _ALLOWED_GROWTH_STAGES:
+            if crop is not None and crop not in _ALLOWED_CROPS:
+                raise HTTPException(status_code=422, detail="Choose a supported crop when supplying crop context.")
+            if growth_stage is not None and growth_stage not in _ALLOWED_GROWTH_STAGES:
                 raise HTTPException(status_code=422, detail="Choose a supported crop and growth stage.")
             image_data, image_mime_type = await _read_crop_image(image)
     except HTTPException:
@@ -260,7 +264,7 @@ async def create_crop_diagnosis(
         raise HTTPException(status_code=504, detail="The photo analysis took too long. Please try again.") from error
     except (MissingConfigurationError, CropDiagnosisError) as error:
         logger.warning("crop_diagnosis_unavailable reason=%s", type(error).__name__)
-        raise HTTPException(status_code=503, detail="Gemini Vision is not available right now. Check the server configuration and try again.") from error
+        raise HTTPException(status_code=503, detail="CropVision analysis is not available right now. Please try again shortly.") from error
     except Exception:
         logger.exception("crop_diagnosis_failed")
         raise HTTPException(status_code=502, detail="The leaf photo could not be analysed. Please use a clearer photo and try again.") from None
@@ -273,8 +277,8 @@ async def create_crop_diagnosis(
             CropDiagnosisRecord(
                 id=diagnosis_id,
                 account_id=account.id,
-                crop=crop,
-                growth_stage=growth_stage,
+                crop=result.identified_crop,
+                growth_stage=result.identified_growth_stage,
                 label=result.label,
                 category=result.category,
                 confidence=result.confidence,
@@ -285,8 +289,8 @@ async def create_crop_diagnosis(
         await session.commit()
     return CropDiagnosisResponse(
         id=diagnosis_id,
-        crop=crop,
-        growth_stage=growth_stage,
+        crop=result.identified_crop,
+        growth_stage=result.identified_growth_stage,
         captured_at=captured_at,
         saved=saved,
         **result.model_dump(),

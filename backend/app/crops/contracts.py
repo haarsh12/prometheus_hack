@@ -26,6 +26,8 @@ class TreatmentStep(BaseModel):
 
 
 class CropDiagnosisResult(BaseModel):
+    identified_crop: str = Field(min_length=1, max_length=80)
+    identified_growth_stage: str = Field(min_length=1, max_length=80)
     label: str = Field(min_length=1, max_length=160)
     category: Literal["healthy", "fungal", "pest", "nutrient", "water", "unknown"]
     confidence: float = Field(ge=0, le=1)
@@ -44,7 +46,7 @@ class CropDiagnosisResponse(CropDiagnosisResult):
     crop: str
     growth_stage: str
     captured_at: datetime
-    model_name: str = "Gemini Vision"
+    model_name: str = "ShetiMitra CropVision"
     saved: bool = False
 
 

@@ -33,6 +33,7 @@ import { getSchemeDetail, getSchemeFilters, getSchemes } from '../lib/api'
 import {
   BENEFICIARY_TAGS,
   SCHEME_CATEGORIES,
+  SCHEMES_CATALOGUE,
   getSchemeBySlug,
   type SchemeEntry,
 } from '../data/schemes-catalogue'
@@ -61,6 +62,54 @@ const SCHEME_TYPE_COLORS: Record<string, string> = {
   FUND: '#e65100',
   INSURANCE: '#4527a0',
   FINANCIAL_PRODUCT: '#2e7d32',
+}
+
+function staticSummary(entry: SchemeEntry): SchemeSummary {
+  return {
+    id: `catalogue-${entry.slug}`,
+    slug: entry.slug,
+    official_name: entry.official_name,
+    short_name: entry.short_name,
+    scheme_type: entry.scheme_type,
+    category: entry.category,
+    description: entry.description,
+    beneficiary_categories: entry.beneficiary_tags,
+    relevant_user_types: entry.relevant_user_types,
+    applicable_states: entry.applicable_states,
+    applicable_districts: [],
+    geographic_scope: entry.geographic_scope,
+    status: entry.status,
+    verification_status: 'APPROVED',
+    last_checked_at: new Date().toISOString(),
+  }
+}
+
+function staticSchemePage({
+  query,
+  category,
+  beneficiary,
+  state,
+  profileType,
+  offset,
+}: {
+  query: string
+  category: string
+  beneficiary: string
+  state: string
+  profileType?: UserType | null
+  offset: number
+}): { items: SchemeSummary[]; total: number } {
+  const searchTerms = query.toLowerCase().trim().split(/\s+/).filter(Boolean)
+  const selectedBeneficiary = beneficiary || profileType || ''
+  const matching = SCHEMES_CATALOGUE.filter((entry) => {
+    const searchable = [entry.official_name, entry.short_name, entry.category, entry.description, entry.objective, entry.benefits, ...entry.tags].join(' ').toLowerCase()
+    const isMatchingQuery = searchTerms.every((term) => searchable.includes(term))
+    const isMatchingCategory = !category || entry.category === category
+    const isMatchingBeneficiary = !selectedBeneficiary || entry.relevant_user_types.includes(selectedBeneficiary as UserType) || entry.beneficiary_tags.some((tag) => tag.toLowerCase() === selectedBeneficiary.toLowerCase())
+    const isMatchingState = !state || entry.geographic_scope === 'NATIONAL' || entry.applicable_states.some((item) => item.toLowerCase() === state.toLowerCase())
+    return isMatchingQuery && isMatchingCategory && isMatchingBeneficiary && isMatchingState
+  })
+  return { items: matching.slice(offset, offset + PAGE_SIZE).map(staticSummary), total: matching.length }
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -391,9 +440,11 @@ export function SchemesView({
   const [schemes, setSchemes] = useState<SchemeSummary[]>([])
   const [total, setTotal] = useState(0)
   const [offset, setOffset] = useState(0)
+  const offsetRef = useRef(0)
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [catalogueNotice, setCatalogueNotice] = useState<string | null>(null)
 
   // Detail state
   const [detailState, setDetailState] = useState<DetailState>({ kind: 'idle' })
@@ -421,7 +472,7 @@ export function SchemesView({
   // ── Load Schemes ──
   const loadSchemes = useCallback(
     async (isMore = false) => {
-      const currentOffset = isMore ? offset : 0
+      const currentOffset = isMore ? offsetRef.current : 0
       if (isMore) setIsLoadingMore(true)
       else { setIsLoading(true); setError(null) }
 
@@ -436,24 +487,56 @@ export function SchemesView({
           useCache: !isMore && currentOffset === 0,
         })
 
+        const fallback = staticSchemePage({
+          query: submittedQuery,
+          category: selectedCategory,
+          beneficiary: isGuest ? selectedBeneficiary : '',
+          state: isGuest ? selectedState : '',
+          profileType: isGuest ? null : profile?.user_type,
+          offset: currentOffset,
+        })
+        const useStaticCatalogue = res.items.length === 0 && res.total === 0
+        const items = useStaticCatalogue ? fallback.items : res.items
+        const resultTotal = useStaticCatalogue ? fallback.total : res.total
         if (isMore) {
-          setSchemes((prev) => [...prev, ...res.items])
-          setOffset(currentOffset + res.items.length)
+          setSchemes((prev) => [...prev, ...items])
+          offsetRef.current = currentOffset + items.length
+          setOffset(offsetRef.current)
         } else {
-          setSchemes(res.items)
-          setOffset(res.items.length)
+          setSchemes(items)
+          offsetRef.current = items.length
+          setOffset(offsetRef.current)
         }
-        setTotal(res.total)
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Could not load schemes.'
-        if (!isMore) setError(msg)
+        setTotal(resultTotal)
+        setCatalogueNotice(useStaticCatalogue ? 'Showing the included farmer-schemes catalogue while the verified source catalogue is being refreshed.' : null)
+      } catch {
+        const fallback = staticSchemePage({
+          query: submittedQuery,
+          category: selectedCategory,
+          beneficiary: isGuest ? selectedBeneficiary : '',
+          state: isGuest ? selectedState : '',
+          profileType: isGuest ? null : profile?.user_type,
+          offset: currentOffset,
+        })
+        if (isMore) {
+          setSchemes((prev) => [...prev, ...fallback.items])
+          offsetRef.current = currentOffset + fallback.items.length
+          setOffset(offsetRef.current)
+        } else {
+          setSchemes(fallback.items)
+          offsetRef.current = fallback.items.length
+          setOffset(offsetRef.current)
+        }
+        setTotal(fallback.total)
+        setError(null)
+        setCatalogueNotice('Showing the included farmer-schemes catalogue. Open a scheme to see its listed official source.')
       } finally {
         setIsLoading(false)
         setIsLoadingMore(false)
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [submittedQuery, selectedCategory, selectedBeneficiary, selectedState, isGuest],
+    [submittedQuery, selectedCategory, selectedBeneficiary, selectedState, isGuest, profile?.user_type],
   )
 
   // Initial + filter-change load
@@ -632,6 +715,8 @@ export function SchemesView({
           <RefreshCw size={13} />
         </button>
       </p>
+
+      {catalogueNotice && <p className="inline-notice">{catalogueNotice}</p>}
 
       {/* Error */}
       {error && <p className="inline-notice">{error}</p>}

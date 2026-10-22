@@ -286,7 +286,9 @@ async def get_voice_guest_context(
         if profile is not None
         else None
     )
-    context = snapshot.render_context(max_characters=MAX_AGENT_CONTEXT_CHARACTERS)
+    # Reserve room for current calendar facts; older conversational context
+    # must not crowd out the reminders the farmer explicitly asked about.
+    context = snapshot.render_context(max_characters=max(MAX_AGENT_CONTEXT_CHARACTERS - 1_500, 1_000))
     if snapshot.account_id is not None:
         try:
             calendar_context = await upcoming_calendar_context(session, snapshot.account_id)

@@ -230,8 +230,8 @@ def generate_text_reply(
 
 def build_crop_diagnosis_prompt(
     *,
-    crop: str,
-    growth_stage: str,
+    crop: str | None = None,
+    growth_stage: str | None = None,
     state: str | None = None,
     district: str | None = None,
 ) -> str:
@@ -245,11 +245,14 @@ def build_crop_diagnosis_prompt(
     location = ", ".join(part for part in (district, state) if part) or "not provided"
     return f"""
 You are ShetiMitra AI's crop-vision screening service. Analyze the attached
-leaf photo only as visual evidence. Crop: {crop}. Growth stage: {growth_stage}.
+leaf photo only as visual evidence. Crop context: {crop or "auto-detect from image"}.
+Growth-stage context: {growth_stage or "auto-detect from image"}.
 Farm location context: {location}.
 
 Return exactly one JSON object, no markdown or extra keys, matching:
 {{
+  "identified_crop": "crop visible in image or Crop not confidently identified",
+  "identified_growth_stage": "visible stage or Stage not confidently identified",
   "label": "short likely visible pattern",
   "category": "healthy|fungal|pest|nutrient|water|unknown",
   "confidence": 0.0,
@@ -288,8 +291,8 @@ def generate_crop_diagnosis(
     *,
     image_data: bytes,
     image_mime_type: str,
-    crop: str,
-    growth_stage: str,
+    crop: str | None = None,
+    growth_stage: str | None = None,
     state: str | None = None,
     district: str | None = None,
 ):
